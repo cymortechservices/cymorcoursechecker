@@ -77,7 +77,7 @@ export class MongoDatasetRepository implements DatasetRepository {
   async loadDataset(version: string): Promise<LoadedDataset | null> {
     const vd: any = await DatasetVersionModel.findOne({ version }).lean();
     if (!vd) return null;
-    const [programmes, cutoffs, clusters, subs]: any[][] = await Promise.all([
+    const [programmes, cutoffs, clusters, subs]: [any[], any[], any[], any[]] = await Promise.all([
       ProgrammeModel.find({ datasetVersion: version }).lean(),
       CutoffModel.find({ datasetVersion: version }).lean(),
       ClusterModel.find({ datasetVersion: version }).lean(),

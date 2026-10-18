@@ -64,7 +64,7 @@ export function parseCutoffDocument(lines: PdfLine[]): CutoffDocParseResult {
     const text = lineText(line);
     const start = ROW_START.exec(first.text);
     if (first.x < 100 && start) {
-      const valueStart = centres[0] - 28;
+      const valueStart = (centres[0] ?? 0) - 28;
       const nameSegs = segs.filter((s) => s.x1 < valueStart + 4);
       const valueSegs = segs.filter((s) => s.x1 >= valueStart + 4);
       const institution = [(start as RegExpExecArray)[3] ?? '', ...nameSegs.slice(1).filter((s) => s.x < 250).map((s) => s.text)]

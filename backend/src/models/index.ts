@@ -7,7 +7,12 @@
  */
 import mongoose, { Schema, InferSchemaType } from 'mongoose';
 
-const { model, models } = mongoose;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type AnyModel = mongoose.Model<any>;
+/** Reuse an already-registered model (hot reload) or create it. Typed loosely so repository code compiles under strict mode. */
+function getModel(name: string, schema: mongoose.Schema): AnyModel {
+  return (mongoose.models[name] as AnyModel | undefined) ?? mongoose.model(name, schema);
+}
 
 const verification = { type: String, enum: ['validated', 'needs_review', 'rejected'], required: true } as const;
 
@@ -207,16 +212,16 @@ const auditSchema = new Schema(
   { collection: 'audit_log' },
 );
 
-export const SourceDocumentModel = models.SourceDocument ?? model('SourceDocument', sourceDocumentSchema);
-export const ImportBatchModel = models.ImportBatch ?? model('ImportBatch', importBatchSchema);
-export const DatasetVersionModel = models.DatasetVersion ?? model('DatasetVersion', datasetVersionSchema);
-export const ClusterModel = models.Cluster ?? model('Cluster', clusterSchema);
-export const SubClusterModel = models.SubCluster ?? model('SubCluster', subClusterSchema);
-export const ProgrammeModel = models.Programme ?? model('Programme', programmeSchema);
-export const CutoffModel = models.Cutoff ?? model('Cutoff', cutoffSchema);
-export const ReviewItemModel = models.ReviewItem ?? model('ReviewItem', reviewItemSchema);
-export const ReportModel = models.Report ?? model('Report', reportSchema);
-export const AdminUserModel = models.AdminUser ?? model('AdminUser', adminUserSchema);
-export const AuditModel = models.Audit ?? model('Audit', auditSchema);
+export const SourceDocumentModel: AnyModel = getModel('SourceDocument', sourceDocumentSchema);
+export const ImportBatchModel: AnyModel = getModel('ImportBatch', importBatchSchema);
+export const DatasetVersionModel: AnyModel = getModel('DatasetVersion', datasetVersionSchema);
+export const ClusterModel: AnyModel = getModel('Cluster', clusterSchema);
+export const SubClusterModel: AnyModel = getModel('SubCluster', subClusterSchema);
+export const ProgrammeModel: AnyModel = getModel('Programme', programmeSchema);
+export const CutoffModel: AnyModel = getModel('Cutoff', cutoffSchema);
+export const ReviewItemModel: AnyModel = getModel('ReviewItem', reviewItemSchema);
+export const ReportModel: AnyModel = getModel('Report', reportSchema);
+export const AdminUserModel: AnyModel = getModel('AdminUser', adminUserSchema);
+export const AuditModel: AnyModel = getModel('Audit', auditSchema);
 
 export type ProgrammeDoc = InferSchemaType<typeof programmeSchema>;

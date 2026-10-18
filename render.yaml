@@ -4,7 +4,7 @@ services:
     name: cymor-coursechecker-api
     runtime: node
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/v1/health
     envVars:
