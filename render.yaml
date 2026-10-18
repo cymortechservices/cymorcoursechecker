@@ -1,0 +1,14 @@
+# Render blueprint for the API. Secrets are set in the Render dashboard (sync: false), never here.
+services:
+  - type: web
+    name: cymor-coursechecker-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: MONGODB_URI, sync: false }
+      - { key: JWT_SECRET, sync: false }
+      - { key: CORS_ORIGINS, sync: false }
