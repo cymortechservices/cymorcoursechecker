@@ -7,6 +7,8 @@ import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, Clipbo
 import { ApiError, SubjectInfo, api, session } from '../lib/api';
 import { Details, GRADE_LIST, Prefs, detailsSchema, gradesSchema, preferencesSchema } from '../lib/schemas';
 import { LogoMark } from '../components/Logo';
+import SubjectPicker from '../components/SubjectPicker';
+import { FALLBACK_SUBJECTS } from '../lib/subjects.fallback';
 
 type Kind = 'eng' | 'kis' | 'math' | 'other';
 interface Row { id: number; kind: Kind; subject: string; grade: string }
@@ -35,7 +37,7 @@ export default function Checker() {
   const reduce = useReducedMotion();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
-  const [subjects, setSubjects] = useState<SubjectInfo[]>([]);
+  const [subjects, setSubjects] = useState<SubjectInfo[]>(FALLBACK_SUBJECTS);
   const [loadErr, setLoadErr] = useState('');
   const [rows, setRows] = useState<Row[]>(START);
   const nextId = useRef(100);
@@ -144,7 +146,7 @@ export default function Checker() {
           })}
         </ol>
 
-        {loadErr && <p role="alert" className="mt-6 rounded-xl border border-red-300 bg-red-50 p-4 text-red-800">{loadErr}</p>}
+        {loadErr && <p role="status" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">Could not reach the server just now ({loadErr}). You can keep filling in your grades; we will try again when you press Next.</p>}
 
         <div className="card relative mt-6 overflow-hidden p-6 shadow-xl sm:p-8">
           <AnimatePresence mode="wait" custom={dir} initial={false}>
@@ -183,10 +185,7 @@ export default function Checker() {
                           <motion.li key={r.id} layout initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, x: -40, height: 0, marginTop: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 26, delay: reduce ? 0 : Math.min(idx, 6) * 0.03 }} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                             <div className="flex flex-wrap items-center gap-2">
                               {r.kind === 'other' ? (
-                                <select aria-label={`Subject ${idx + 1}`} className="input flex-1 min-w-[180px]" value={r.subject} onChange={(e) => setRow(r.id, { subject: e.target.value })}>
-                                  <option value="">Select subject…</option>
-                                  {otherChoices.filter((s) => !taken.has(s.code) || s.code === r.subject).map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
-                                </select>
+                                <SubjectPicker label={`Subject ${idx + 1}`} value={r.subject} options={otherChoices.filter((s) => !taken.has(s.code) || s.code === r.subject)} onChange={(code) => setRow(r.id, { subject: code })} />
                               ) : r.kind === 'math' ? (
                                 <div className="flex flex-1 items-center gap-2" role="group" aria-label="Mathematics paper">
                                   <span className="font-semibold text-ink">Mathematics</span>
