@@ -1,5 +1,18 @@
 /** Typed API client. Report access tokens travel in the X-Report-Token header, never in URLs. */
-const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:4000/api/v1';
+/**
+ * API base URL. Tolerant of the common misconfigurations that cause "Route not found":
+ * a missing "/api/v1" suffix, a trailing slash, or a missing protocol.
+ */
+function normaliseBase(raw: string | undefined): string {
+  let b = (raw ?? '').trim();
+  if (!b) return 'http://localhost:4000/api/v1';
+  if (!/^https?:\/\//i.test(b)) b = `https://${b}`;
+  b = b.replace(/\/+$/, '');
+  if (!/\/api\/v1$/i.test(b)) b = `${b.replace(/\/api$/i, '')}/api/v1`;
+  return b;
+}
+export const API_BASE = normaliseBase(import.meta.env.VITE_API_BASE_URL as string | undefined);
+const BASE = API_BASE;
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public details?: unknown) {
@@ -20,7 +33,8 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string): Pr
   if (!res.ok) {
     let body: { error?: { code?: string; message?: string; details?: unknown } } = {};
     try { body = await res.json(); } catch { /* not JSON */ }
-    throw new ApiError(res.status, body.error?.code ?? 'ERROR', body.error?.message ?? 'Something went wrong.', body.error?.details);
+    const hint = res.status === 404 && (body.error?.code === 'NOT_FOUND' || !body.error) ? ' The website could not find the API. Check that VITE_API_BASE_URL points to your Render service.' : '';
+    throw new ApiError(res.status, body.error?.code ?? 'ERROR', (body.error?.message ?? 'Something went wrong.') + hint, body.error?.details);
   }
   return ((await res.json()) as { data: T }).data;
 }

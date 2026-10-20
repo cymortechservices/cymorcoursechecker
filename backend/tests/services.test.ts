@@ -99,3 +99,21 @@ test('reviewers cannot activate', async () => {
   const { admin } = await setup();
   await assert.rejects(admin.activate({ email: 'r@x.test', role: 'reviewer' }, 'v1'), /Administrator/);
 });
+
+import fs from 'node:fs';
+const srcDir = process.env.KUCCPS_PDF_DIR ?? `${process.cwd()}/data/source`;
+const havePdfs = fs.existsSync(`${srcDir}/DEGREE_CLUSTER_DOCUMENT_11_2_2024.pdf`) && fs.existsSync(`${srcDir}/DEGREE_CUTOFFS_14_07_2025.pdf`);
+
+test('seed: imports bundled PDFs, activates, then refuses to run again', { skip: !havePdfs, timeout: 240_000 }, async () => {
+  const datasets = new MemoryDatasetRepository();
+  const admin = new AdminService({ datasets, admins: new MemoryAdminRepository(), cache: new DatasetCache(datasets), jwtSecret: 'x'.repeat(40), jwtExpiresIn: '1h' });
+  const out = await admin.seedFromBundled(srcDir);
+  assert.equal(out.activated, true);
+  assert.equal(await datasets.getActiveVersion(), out.version);
+  await assert.rejects(admin.seedFromBundled(srcDir), /already active/);
+});
+test('seed: missing source files gives a clear error', async () => {
+  const datasets = new MemoryDatasetRepository();
+  const admin = new AdminService({ datasets, admins: new MemoryAdminRepository(), cache: new DatasetCache(datasets), jwtSecret: 'x'.repeat(40), jwtExpiresIn: '1h' });
+  await assert.rejects(admin.seedFromBundled('/nonexistent-dir'), /not found on the server/);
+});

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Download, Info, Loader2, Search } from 'lucide-react';
 import { ApiError, Choices, Page, PublicOption, ResultsQuery, RunResult, Summary, api, session } from '../lib/api';
 
@@ -53,7 +54,7 @@ export default function Results() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-extrabold text-ink">Your results</h1>
+        <h1 className="font-display text-4xl font-extrabold text-ink">Your results</h1>
         <div className="flex gap-2">
           <button className="btn btn-primary" onClick={download} disabled={pdfBusy}>{pdfBusy ? <Loader2 className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Download PDF report</button>
           <button className="btn btn-ghost" onClick={() => { session.clear(); nav('/check'); }}>New check</button>
@@ -63,8 +64,8 @@ export default function Results() {
 
       {s && (
         <div className="mt-5 grid gap-3 sm:grid-cols-4">
-          {[['Qualifying options', String(s.qualifyingOptions)], ['Aggregate points', `${s.aggregatePoints} / 84`], ['Estimated mean grade', s.estimatedMeanGrade ?? '-'], ['Shared-cutoff options', String(s.sharedCutoffOptions)]].map(([k, v]) => (
-            <div key={k} className="card p-4"><div className="text-sm text-slate-500">{k}</div><div className="text-2xl font-extrabold text-ink">{v}</div></div>
+          {[['Qualifying options', String(s.qualifyingOptions)], ['Aggregate points', `${s.aggregatePoints} / 84`], ['Estimated mean grade', s.estimatedMeanGrade ?? '-'], ['Shared-cutoff options', String(s.sharedCutoffOptions)]].map(([k, v], i) => (
+            <motion.div key={k} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} whileHover={{ y: -4 }} className="card p-4"><div className="text-sm text-slate-500">{k}</div><div className="font-display text-3xl font-extrabold text-ink">{v}</div></motion.div>
           ))}
         </div>
       )}
@@ -74,11 +75,11 @@ export default function Results() {
           <h2 id="ch" className="text-xl font-bold text-ink">Your recommended application choices</h2>
           <p className="text-sm text-slate-600">1A–1C are the same programme at three universities; 2–4 are other programmes.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {choices.rows.map((row) => (
-              <div key={row.choice} className="card flex items-start gap-3 p-4">
+            {choices.rows.map((row, i) => (
+              <motion.div key={row.choice} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.08 }} whileHover={{ y: -4 }} className="card flex items-start gap-3 p-4">
                 <span className={`rounded-lg px-3 py-2 font-extrabold text-white ${row.choice.startsWith('1') ? 'bg-brand' : 'bg-navy'}`}>{row.choice}</span>
                 <div>{row.option ? (<><div className="font-semibold text-ink">{title(row.option.programmeName)}</div><div className="text-slate-600">{title(row.option.institutionName)}</div><div className="text-xs text-slate-500">Code {row.option.programmeCode} · cutoff {row.option.cutoff} ({row.option.cutoffYear})</div></>) : <div className="text-slate-500">No qualifying option available</div>}</div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </section>
@@ -103,13 +104,13 @@ export default function Results() {
             <thead className="bg-navy text-white"><tr><th className="p-3">Programme and university</th><th className="p-3">Code</th><th className="p-3 text-right">Your score</th><th className="p-3 text-right">Cutoff (year)</th><th className="p-3 text-right">Margin</th></tr></thead>
             <tbody>
               {r?.items.map((o: PublicOption) => { const l = level(o.margin); return (
-                <tr key={o.programmeCode} className="border-t border-slate-100 odd:bg-white even:bg-slate-50">
+                <motion.tr key={o.programmeCode} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-t border-slate-100 odd:bg-white even:bg-slate-50">
                   <td className="p-3"><div className="font-semibold text-ink">{title(o.programmeName)}</div><div className="text-slate-600">{title(o.institutionName)}</div></td>
                   <td className="p-3 font-mono">{o.programmeCode}</td>
                   <td className="p-3 text-right font-bold">{o.scoreDisplay}</td>
                   <td className="p-3 text-right">{o.cutoff} <span className="text-slate-500">({o.cutoffYear})</span>{o.cutoffBasis === 'shared-minimum' && <div className="text-xs font-semibold text-amber-700">shared minimum*</div>}</td>
                   <td className="p-3 text-right"><div className="font-bold">+{o.marginDisplay}</div><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${l.c}`}>{l.t}</span></td>
-                </tr>); })}
+                </motion.tr>); })}
               {r && r.items.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">No programmes match.</td></tr>}
             </tbody>
           </table>

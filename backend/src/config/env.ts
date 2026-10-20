@@ -20,6 +20,8 @@ const schema = z.object({
   UPLOAD_MAX_MB: z.coerce.number().int().positive().max(50).default(25),
   /** Contact details shown in the footer / PDF. Optional and never invented. */
   SUPPORT_EMAIL: z.string().optional(),
+  /** Optional one-time seed key (>= 32 chars). When set, POST /api/v1/admin/seed can import the bundled PDFs and activate them if NO dataset is active yet. Remove it afterwards. */
+  SEED_KEY: z.string().min(32, 'SEED_KEY must be at least 32 characters').optional().or(z.literal('').transform(() => undefined)),
   SITE_NAME: z.string().default('CYMOR KUCCPS CourseChecker'),
 });
 

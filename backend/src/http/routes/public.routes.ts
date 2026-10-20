@@ -14,6 +14,11 @@ export function publicRoutes(deps: { checker: CheckerService; cache: DatasetCach
   const r = Router();
   const token = (req: Parameters<Parameters<typeof asyncH>[0]>[0]) => req.header('x-report-token') ?? undefined;
 
+  // Friendly index so opening the API address in a browser shows that it is running and which routes exist.
+  r.get('/', (_req, res) => {
+    res.json(ok({ service: deps.env.SITE_NAME, status: 'running', version: 'v1', routes: ['/health', '/subjects', '/metadata', '/checker/validate', '/checker/results', '/results/:reportId', '/results/:reportId/choices', '/reports/:reportId/pdf', '/institutions', '/cutoff-years', '/programmes'] }));
+  });
+
   r.get('/health', (_req, res) => {
     res.status(deps.isDbReady() ? 200 : 503).json(ok({ status: deps.isDbReady() ? 'ok' : 'degraded' }));
   });

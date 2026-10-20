@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
 const Page = ({ title, children }: { title: string; children: ReactNode }) => (
-  <div className="mx-auto max-w-3xl px-4 py-10">
-    <h1 className="text-3xl font-extrabold text-ink">{title}</h1>
+  <div className="mx-auto max-w-3xl px-4 py-14">
+    <h1 className="font-display text-4xl font-extrabold text-ink">{title}</h1>
+    <div className="mt-3 h-1 w-20 rounded bg-gradient-to-r from-violet-600 to-cyan-400" />
     <div className="mt-6 space-y-4 leading-relaxed text-slate-700">{children}</div>
   </div>
 );

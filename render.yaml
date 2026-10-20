@@ -12,3 +12,5 @@ services:
       - { key: MONGODB_URI, sync: false }
       - { key: JWT_SECRET, sync: false }
       - { key: CORS_ORIGINS, sync: false }
+      # Optional, one-time: random 32+ chars; call POST /api/v1/admin/seed once, then delete it.
+      - { key: SEED_KEY, sync: false }

@@ -24,6 +24,8 @@ export function createApp(deps: AppDeps): Express {
   app.use(corsPolicy(deps.env));
   app.use(requestTimeout(deps.env.REQUEST_TIMEOUT_MS));
   app.use(express.json({ limit: '50kb' }));
+  app.get('/', (_req, res) => { res.json({ success: true, data: { service: deps.env.SITE_NAME, api: '/api/v1', health: '/api/v1/health' } }); });
+  app.get('/api', (_req, res) => { res.json({ success: true, data: { api: '/api/v1' } }); });
   app.use('/api/v1/admin', adminRoutes({ admin: deps.admin, env: deps.env }));
   app.use('/api/v1', publicLimiter(deps.env), publicRoutes({ checker: deps.checker, cache: deps.cache, env: deps.env, isDbReady: deps.isDbReady }));
   app.use(notFoundHandler);

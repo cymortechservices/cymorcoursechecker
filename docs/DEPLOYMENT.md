@@ -8,3 +8,19 @@
 
 Free Render instances sleep; the first request after idle can take ~30-60 s.
 Transactions (activation/rollback) require an Atlas replica set (all Atlas clusters are).
+
+## Troubleshooting
+- **"Route not found" in the website**: `VITE_API_BASE_URL` must point at the API and end with `/api/v1` (the site appends it if missing). Open `https://<render-app>.onrender.com/api/v1` in a browser: you should see a small JSON status. After changing a Vercel variable you must **redeploy** the frontend.
+- **CORS errors**: `CORS_ORIGINS` on Render must contain your exact Vercel URL (no trailing slash).
+- **"No dataset is active"**: run the import and activate commands in `DATA_IMPORT_GUIDE.md`.
+
+## Seeding without a shell (Render free tier)
+1. In Render > Environment add `SEED_KEY` = a random 32+ character value (`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`). Save; the service redeploys.
+2. Call the seed endpoint once (PowerShell):
+   ```powershell
+   Invoke-RestMethod -Method Post -Uri "https://<render-app>.onrender.com/api/v1/admin/seed" -Headers @{ "X-Seed-Key" = "<your key>" } -TimeoutSec 300
+   ```
+   It imports the PDFs bundled in `backend/data/source`, runs the activation checks and activates the dataset.
+3. Verify `GET /api/v1/metadata`, then **delete `SEED_KEY`** from Render.
+
+The endpoint is disabled when `SEED_KEY` is unset, compares the key in constant time, reads the key only from the `X-Seed-Key` header, is rate limited, and refuses to run if any dataset is already active.

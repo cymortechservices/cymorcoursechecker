@@ -2,6 +2,8 @@
  * Administrative use cases: authentication, import (dry-run or draft), review, correction,
  * activation and rollback. Storage is accessed only through repository interfaces.
  */
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { AdminRepository, Correction, DatasetRepository } from '../repositories/types';
@@ -98,6 +100,36 @@ export class AdminService {
       await this.d.datasets.audit({ at: this.now(), actor: actor.email, action: 'import_failed', details: { reason: 'storage failure', version } });
       throw new AppError(500, 'IMPORT_STORAGE_FAILED', 'The import failed and nothing was activated. The active dataset is unchanged.');
     }
+  }
+
+  /**
+   * One-time seeding for hosts without a shell (e.g. Render free tier): imports the two source PDFs
+   * bundled in the repository and activates the result. Refuses to run if any dataset is already active.
+   */
+  async seedFromBundled(dir: string) {
+    if (await this.d.datasets.getActiveVersion()) throw conflict('A dataset is already active, so seeding is disabled.');
+    const actor: AdminPrincipal = { email: 'seed-key', role: 'admin' };
+    const clusterFilename = 'DEGREE_CLUSTER_DOCUMENT_11_2_2024.pdf';
+    const cutoffFilename = 'DEGREE_CUTOFFS_14_07_2025.pdf';
+    let clusterPdf: Buffer;
+    let cutoffPdf: Buffer;
+    try {
+      [clusterPdf, cutoffPdf] = await Promise.all([fs.readFile(path.join(dir, clusterFilename)), fs.readFile(path.join(dir, cutoffFilename))]);
+    } catch {
+      throw new AppError(500, 'SEED_FILES_MISSING', 'The bundled source PDFs were not found on the server (expected backend/data/source).');
+    }
+    let version: string;
+    try {
+      const out = await this.importPdfs(actor, { clusterPdf, clusterFilename, cutoffPdf, cutoffFilename }, { dryRun: false });
+      version = (out as { version: string }).version;
+    } catch (e) {
+      // The same files were imported earlier as a draft: reuse that draft.
+      const v = e instanceof AppError && e.status === 409 ? (e.details as { version?: string } | undefined)?.version : undefined;
+      if (!v) throw e;
+      version = v;
+    }
+    const activated = await this.activate(actor, version);
+    return { version, activated: true, warnings: activated.warnings };
   }
 
   async listDatasets() {

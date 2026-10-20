@@ -7,7 +7,8 @@ import { asyncH, requireAuth } from '../middleware/auth';
 import { noStore, adminLimiter } from '../middleware/security';
 import { auditQuery, correctionBody, importQuery, loginBody, pagingQuery, versionParam } from '../validators';
 import { ok } from '../../utils/response';
-import { badRequest } from '../../utils/errors';
+import crypto from 'node:crypto';
+import { badRequest, notFound, unauthorized } from '../../utils/errors';
 import type { AdminService } from '../../services/admin.service';
 import type { Env } from '../../config/env';
 
@@ -25,6 +26,18 @@ export function adminRoutes(deps: { admin: AdminService; env: Env }): Router {
   r.post('/login', asyncH(async (req, res) => {
     const b = loginBody.parse(req.body);
     res.json(ok(await deps.admin.login(b.email, b.password)));
+  }));
+
+  // One-time seed endpoint (no shell on Render free tier). Disabled unless SEED_KEY is set.
+  // Key travels in the X-Seed-Key header only; works only while no dataset is active.
+  r.post('/seed', asyncH(async (req, res) => {
+    const key = deps.env.SEED_KEY;
+    if (!key) throw notFound('Route not found');
+    const h = (v: string) => crypto.createHash('sha256').update(v).digest();
+    const given = req.header('x-seed-key') ?? '';
+    if (!crypto.timingSafeEqual(h(given), h(key))) throw unauthorized('Invalid seed key');
+    const out = await deps.admin.seedFromBundled(path.resolve(process.cwd(), 'data', 'source'));
+    res.status(201).json(ok(out));
   }));
 
   const auth = requireAuth(deps.admin);
