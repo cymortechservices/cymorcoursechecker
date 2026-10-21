@@ -72,6 +72,8 @@ If the M-Pesa variables are missing the API still starts and logs a warning; pai
 4. Payments are verified server-side: only a callback/query reporting success with an amount >= the amount due unlocks a report, and each order is marked paid exactly once.
 
 ### Admin dashboard
+No shell on Render? Add `ADMIN_EMAIL` and `ADMIN_PASSWORD` (12+ characters) in the Render dashboard and save: on startup the API creates that admin if it does not exist yet. Then **delete `ADMIN_PASSWORD`** from Render (the account stays). Otherwise run `npm run create:admin` from your computer.
+
 Open `https://<your-site>/admin`, sign in with the admin created by `npm run create:admin` (set `ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars once). It shows reports generated, money earned (today / 7 / 30 days), conversion, a 14-day chart, an orders table (search, status filter, CSV export, resend report email) and coupons (create percentage codes with optional max uses and expiry; enable/disable). Coupons are applied by the server when pricing and the percentage actually reduces the amount sent to M-Pesa; a 100% coupon unlocks for free. Only users with the `admin` role can create coupons or resend emails.
 
 ## Verification status (read this)

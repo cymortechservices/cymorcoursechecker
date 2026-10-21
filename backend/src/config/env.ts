@@ -22,6 +22,9 @@ const schema = z.object({
   SUPPORT_EMAIL: z.string().default('simion@karimique.com'),
   /** Optional one-time seed key (>= 32 chars). When set, POST /api/v1/admin/seed can import the bundled PDFs and activate them if NO dataset is active yet. Remove it afterwards. */
   SEED_KEY: z.string().min(32, 'SEED_KEY must be at least 32 characters').optional().or(z.literal('').transform(() => undefined)),
+  /** One-time admin bootstrap for hosts without a shell. Creates the admin at startup if it does not exist; remove ADMIN_PASSWORD afterwards. */
+  ADMIN_EMAIL: z.string().email().optional().or(z.literal('').transform(() => undefined)),
+  ADMIN_PASSWORD: z.string().min(12, 'ADMIN_PASSWORD must be at least 12 characters').optional().or(z.literal('').transform(() => undefined)),
   /** Price in whole KES for unlocking results + PDF. */
   PRICE_KES: z.coerce.number().int().min(1).max(100000).default(149),
   PAYMENT_RATE_LIMIT_PER_10MIN: z.coerce.number().int().positive().default(8),

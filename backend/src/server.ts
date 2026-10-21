@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { loadEnv } from './config/env';
 import { createApp } from './app';
 import { MongoAdminRepository, MongoCouponRepository, MongoDatasetRepository, MongoOrderRepository, MongoReportRepository } from './repositories/mongo.repository';
@@ -17,6 +18,14 @@ async function main() {
   await mongoose.connect(env.MONGODB_URI, { dbName: env.MONGODB_DB_NAME, serverSelectionTimeoutMS: 10_000 });
   const datasets = new MongoDatasetRepository();
   const cache = new DatasetCache(datasets);
+  if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD) {
+    const admins = new MongoAdminRepository();
+    const email = env.ADMIN_EMAIL.trim().toLowerCase();
+    if (!(await admins.findByEmail(email))) {
+      await admins.create({ email, passwordHash: await bcrypt.hash(env.ADMIN_PASSWORD, 12), role: 'admin' });
+      console.log(`Admin account created for ${email}. Remove ADMIN_PASSWORD from the environment now.`);
+    }
+  }
   const orders = new MongoOrderRepository();
   const coupons = new MongoCouponRepository();
   const checker = new CheckerService({ datasets: cache, reports: new MongoReportRepository(), orders, priceKes: env.PRICE_KES, reportTtlDays: env.REPORT_TTL_DAYS, siteName: env.SITE_NAME, supportEmail: env.SUPPORT_EMAIL, supportWhatsapp: env.SUPPORT_WHATSAPP });
