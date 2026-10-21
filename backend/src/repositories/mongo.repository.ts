@@ -355,17 +355,17 @@ export class MongoOrderRepository implements OrderRepository {
     await OrderModel.create(o);
   }
   async get(reportId: string): Promise<Order | null> {
-    return (await OrderModel.findOne({ reportId }).lean()) as Order | null;
+    return (await OrderModel.findOne({ reportId }).lean()) as unknown as Order | null;
   }
   async getByCheckoutRequestId(checkoutRequestId: string): Promise<Order | null> {
-    return (await OrderModel.findOne({ checkoutRequestId }).lean()) as Order | null;
+    return (await OrderModel.findOne({ checkoutRequestId }).lean()) as unknown as Order | null;
   }
   async update(reportId: string, patch: Partial<Order>): Promise<Order | null> {
-    return (await OrderModel.findOneAndUpdate({ reportId }, splitPatch(patch), { new: true }).lean()) as Order | null;
+    return (await OrderModel.findOneAndUpdate({ reportId }, splitPatch(patch), { new: true }).lean()) as unknown as Order | null;
   }
   async markPaidOnce(reportId: string, patch: Partial<Order>): Promise<Order | null> {
     const { $set, $unset } = splitPatch(patch);
-    return (await OrderModel.findOneAndUpdate({ reportId, status: { $ne: 'paid' } }, { $set: { ...$set, status: 'paid' }, ...($unset ? { $unset } : {}) }, { new: true }).lean()) as Order | null;
+    return (await OrderModel.findOneAndUpdate({ reportId, status: { $ne: 'paid' } }, { $set: { ...$set, status: 'paid' }, ...($unset ? { $unset } : {}) }, { new: true }).lean()) as unknown as Order | null;
   }
   async list(f: OrderListFilter): Promise<{ total: number; items: Order[] }> {
     const filter: Record<string, unknown> = {};
@@ -375,10 +375,10 @@ export class MongoOrderRepository implements OrderRepository {
       filter.$or = [{ email: rx }, { candidateName: rx }, { reportId: rx }, { mpesaReceipt: rx }];
     }
     const [total, items] = await Promise.all([OrderModel.countDocuments(filter), OrderModel.find(filter).sort({ createdAt: -1 }).skip(f.skip).limit(f.limit).lean()]);
-    return { total, items: items as Order[] };
+    return { total, items: items as unknown as Order[] };
   }
   async stats(now: Date) {
-    const rows = (await OrderModel.find({}).select('createdAt status amountDue paidAt couponCode').limit(100_000).lean()) as Order[];
+    const rows = (await OrderModel.find({}).select('createdAt status amountDue paidAt couponCode').limit(100_000).lean()) as unknown as Order[];
     return computeOrderStats(rows, now);
   }
 }
@@ -388,13 +388,13 @@ export class MongoCouponRepository implements CouponRepository {
     await CouponModel.create(c);
   }
   async get(code: string): Promise<Coupon | null> {
-    return (await CouponModel.findOne({ code }).lean()) as Coupon | null;
+    return (await CouponModel.findOne({ code }).lean()) as unknown as Coupon | null;
   }
   async list(): Promise<Coupon[]> {
-    return (await CouponModel.find({}).sort({ createdAt: -1 }).lean()) as Coupon[];
+    return (await CouponModel.find({}).sort({ createdAt: -1 }).lean()) as unknown as Coupon[];
   }
   async setActive(code: string, active: boolean): Promise<Coupon | null> {
-    return (await CouponModel.findOneAndUpdate({ code }, { $set: { active } }, { new: true }).lean()) as Coupon | null;
+    return (await CouponModel.findOneAndUpdate({ code }, { $set: { active } }, { new: true }).lean()) as unknown as Coupon | null;
   }
   async incrementUsed(code: string): Promise<void> {
     await CouponModel.updateOne({ code }, { $inc: { usedCount: 1 } });
