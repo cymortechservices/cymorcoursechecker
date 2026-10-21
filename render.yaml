@@ -14,3 +14,21 @@ services:
       - { key: CORS_ORIGINS, sync: false }
       # Optional, one-time: random 32+ chars; call POST /api/v1/admin/seed once, then delete it.
       - { key: SEED_KEY, sync: false }
+      - { key: PRICE_KES, value: "149" }
+      - { key: SUPPORT_EMAIL, value: simion@karimique.com }
+      - { key: SUPPORT_WHATSAPP, value: "0113821327" }
+      - { key: PUBLIC_SITE_URL, sync: false }
+      # M-Pesa Daraja: set these in the Render dashboard (values are secret)
+      - { key: MPESA_ENV, sync: false }
+      - { key: MPESA_CONSUMER_KEY, sync: false }
+      - { key: MPESA_CONSUMER_SECRET, sync: false }
+      - { key: MPESA_SHORTCODE, sync: false }
+      - { key: MPESA_PASSKEY, sync: false }
+      - { key: MPESA_TRANSACTION_TYPE, sync: false }
+      - { key: MPESA_PARTY_B, sync: false }
+      - { key: MPESA_CALLBACK_BASE_URL, sync: false }
+      - { key: MPESA_CALLBACK_SECRET, sync: false }
+      # Email via Brevo
+      - { key: BREVO_API_KEY, sync: false }
+      - { key: EMAIL_FROM, sync: false }
+      - { key: EMAIL_FROM_NAME, value: CYMOR CourseChecker }

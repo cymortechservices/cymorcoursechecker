@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, ShieldCheck, X } from 'lucide-react';
+import { Mail, Menu, MessageCircle, ShieldCheck, X } from 'lucide-react';
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_DISPLAY, SUPPORT_WHATSAPP_URL } from '../lib/site';
 import { LogoMark } from './Logo';
 
 const NAV = [
@@ -59,7 +60,12 @@ export default function Layout({ children }: { children: ReactNode }) {
               </ul>
             </div>
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-white">Learn</h2>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white">Support</h2>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li><a className="inline-flex items-center gap-2 hover:text-white" href={`mailto:${SUPPORT_EMAIL}`}><Mail size={15} aria-hidden /> {SUPPORT_EMAIL}</a></li>
+                <li><a className="inline-flex items-center gap-2 hover:text-white" href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer"><MessageCircle size={15} aria-hidden /> WhatsApp {SUPPORT_WHATSAPP_DISPLAY}</a></li>
+              </ul>
+              <h2 className="mt-6 text-sm font-bold uppercase tracking-wider text-white">Learn</h2>
               <ul className="mt-4 space-y-2 text-sm">
                 <li><Link className="hover:text-white" to="/methodology">How scores work</Link></li>
                 <li><Link className="hover:text-white" to="/#faq">FAQ</Link></li>

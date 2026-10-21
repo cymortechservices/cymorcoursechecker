@@ -32,9 +32,9 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { icon: ClipboardList, title: 'Enter your grades', text: 'English, Kiswahili, one Mathematics and at least four more subjects, with a tap on each grade.' },
+  { icon: ClipboardList, title: 'Enter your grades', text: 'Mathematics, English, Kiswahili and your other subjects (at least seven), with a tap on each grade. Your aggregate uses Mathematics, your better language and your best five other subjects.' },
   { icon: BarChart3, title: 'We do the matching', text: 'Your subjects are matched to cluster rules, scored, and compared with each programme’s cutoff.' },
-  { icon: CheckCircle2, title: 'Get your shortlist', text: 'See every programme you qualify for, your six recommended choices, and download the PDF.' },
+  { icon: CheckCircle2, title: 'Get your shortlist', text: 'See how many courses you qualify for free, then unlock every programme, your six recommended choices and the PDF report for one small payment.' },
 ];
 
 export default function Landing() {
@@ -63,7 +63,7 @@ export default function Landing() {
               <a href="#how" className="btn btn-light text-lg">How it works</a>
             </motion.div>
             <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-              {['No sign-up', 'Takes about 2 minutes', 'PDF report included'].map((t) => <li key={t} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-cyan-300" aria-hidden />{t}</li>)}
+              {['No sign-up', 'Takes about 2 minutes', 'KSh 149 unlocks results + PDF', 'Report emailed to you'].map((t) => <li key={t} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-cyan-300" aria-hidden />{t}</li>)}
             </motion.ul>
           </div>
 

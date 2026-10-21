@@ -24,3 +24,7 @@ Transactions (activation/rollback) require an Atlas replica set (all Atlas clust
 3. Verify `GET /api/v1/metadata`, then **delete `SEED_KEY`** from Render.
 
 The endpoint is disabled when `SEED_KEY` is unset, compares the key in constant time, reads the key only from the `X-Seed-Key` header, is rate limited, and refuses to run if any dataset is already active.
+
+
+## Payments and email
+See the environment-variable table and Daraja checklist in the root `README.md`. Set `MPESA_*`, `BREVO_API_KEY`, `EMAIL_FROM` and `MPESA_CALLBACK_*` in the Render dashboard; add your custom domain (e.g. https://synchro.co.ke) to `CORS_ORIGINS`.

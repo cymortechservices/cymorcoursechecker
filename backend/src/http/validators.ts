@@ -17,13 +17,31 @@ export const validateBody = z.object({ grades: z.array(gradeEntrySchema).max(12)
 export const checkBody = z
   .object({
     candidate: z.object({ name: text(80).optional(), reference: text(40).optional() }).strict().default({}),
+    email: z.string().trim().toLowerCase().email().max(200),
     grades: z.array(gradeEntrySchema).min(1).max(12),
     preferences: z.array(text(120)).max(10).optional(),
     cutoffPolicy: cutoffPolicySchema.optional(),
-    page: z.number().int().min(1).max(10_000).optional(),
-    pageSize: z.number().int().min(5).max(100).optional(),
   })
   .strict();
+
+export const payBody = z.object({ phone: z.string().trim().max(20).optional(), couponCode: z.string().trim().max(30).optional() }).strict();
+export const quoteBody = z.object({ couponCode: z.string().trim().max(30).optional() }).strict();
+export const orderListQuery = z.object({
+  status: z.enum(['unpaid', 'pending', 'paid', 'failed', 'cancelled']).optional(),
+  q: text(80).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  skip: z.coerce.number().int().min(0).max(100_000).default(0),
+});
+export const couponBody = z.object({
+  code: z.string().trim().min(3).max(20),
+  percentOff: z.number().int().min(1).max(100),
+  maxUses: z.number().int().min(1).max(1_000_000).optional(),
+  expiresAt: z.string().datetime().optional(),
+  note: text(120).optional(),
+}).strict();
+export const couponActiveBody = z.object({ active: z.boolean() }).strict();
+export const couponCodeParam = z.object({ code: z.string().trim().min(3).max(20) });
+export const nameSuggestQuery = z.object({ q: text(60).default(''), limit: z.coerce.number().int().min(1).max(20).default(10) });
 
 export const resultsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),

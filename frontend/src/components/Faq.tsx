@@ -9,8 +9,10 @@ export const FAQS = [
   { q: 'Why do some universities show the same cutoff?', a: 'In the source cutoff table, some years print one identical value for many universities. We mark those as “shared minimum” (with *) and rank them below university-specific cutoffs so they are never mistaken for the real thing.' },
   { q: 'A programme I wanted is missing. Why?', a: 'Either your grades do not meet its requirements or cutoff, or the programme could not be matched safely to a cluster in the source documents. We exclude unmatched programmes rather than guess.' },
   { q: 'What are the six recommended choices?', a: 'Choices 1A, 1B and 1C are the same programme at three different universities; choices 2, 3 and 4 are other programmes you qualify for. If you list preferences, we favour them when you qualify.' },
-  { q: 'Do I need an account? Is my data kept?', a: 'No account is needed. Your grades are stored under a random report ID so you can download your PDF, and they are deleted automatically when the report expires.' },
-  { q: 'How many subjects do I need to enter?', a: 'English, Kiswahili, one Mathematics and at least four other subjects (7 minimum). We never assume or fill in a grade for you.' },
+  { q: 'What do I get for the payment, and how do I pay?', a: 'You see how many courses you qualify for for free. A one-time payment of KSh 149 unlocks both the full results and the PDF report. You pay with M-Pesa: enter your Safaricom number and approve the prompt on your phone. If you have a coupon code, apply it before paying.' },
+  { q: 'I paid but my results did not unlock. What now?', a: 'Wait a few seconds: the page checks your payment automatically. If it still does not unlock, contact support on WhatsApp 0113821327 or simion@karimique.com with your M-Pesa message and we will sort it out.' },
+  { q: 'Do I need an account? Is my data kept?', a: 'No account is needed. You give your email so we can send you the PDF. Your grades are stored under a random report ID and are deleted automatically when the report expires. We keep only a payment record (email, amount, M-Pesa receipt) for accounting.' },
+  { q: 'How many subjects do I need to enter?', a: 'English, Kiswahili, one Mathematics and at least four other subjects (7 minimum). Your aggregate counts Mathematics, the better of English and Kiswahili, and your best five remaining subjects. We never assume or fill in a grade for you.' },
 ];
 
 export function Faq() {

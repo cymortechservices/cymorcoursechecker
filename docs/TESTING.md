@@ -12,3 +12,7 @@ Scoring formula and aggregate; slot selection incl. strict ordinals; requirement
 
 ## Honest status of the author's run
 See README "Verification status". Express routes, the Mongoose repository and the React app could **not** be executed in the authoring sandbox (package registry blocked); the service/test layer was run with stand-ins for `bcryptjs` and `jsonwebtoken`. Run `npm test` yourself after `npm install`, then `npm run typecheck` in both folders.
+
+
+## Payments tests
+`backend/tests/payments.test.ts` covers phone normalisation, coupon rules and pricing, the Daraja request (fake fetch), payment initiation/callback/status flows with a fake M-Pesa client, order statistics, dashboard permissions, CSV formula-injection protection and report emailing. Real Daraja/Brevo calls are not tested here.

@@ -4,7 +4,7 @@
 
 - Grade points: A=12, A-=11, B+=10, B=9, B-=8, C+=7, C=6, C-=5, D+=4, D=3, D-=2, E=1.
 - `C = sqrt((r/48) * (t/84)) * 48`, r = points in the 4 cluster-slot subjects, t = aggregate of 7 subjects. No cap at 100, no rounding before comparison.
-- Aggregate (configurable): English + Kiswahili + one Mathematics + best four others.
+- Aggregate t (configurable, 7 subjects, max 84): **Mathematics (compulsory) + the better of English and Kiswahili + the best five of the remaining subjects** (the weaker language competes with the other subjects). This is the current KCSE mean-grade rule as provided by the product owner; it is not printed in the supplied PDFs. The older rule (English + Kiswahili + Mathematics + best four) remains available as `COMPULSORY_PLUS_BEST_FOUR`.
 - Cluster slots come from the cluster header rows; the four subjects maximising r are chosen exhaustively without reusing a subject. A slot that cannot be filled legitimately leaves the programme unassessed; no filler is substituted. "2nd GROUP II" is applied strictly.
 - Subject groups I-V are **assumed** (KNEC convention); the PDFs do not define them.
 - Minimum subject requirements (sub-cluster rows) are separate from slot definitions. Each requirement cell is an OR-list; all cells must be met by **different** subjects.

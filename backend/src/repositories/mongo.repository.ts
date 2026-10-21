@@ -8,9 +8,11 @@ import {
   AdminUserModel,
   AuditModel,
   ClusterModel,
+  CouponModel,
   CutoffModel,
   DatasetVersionModel,
   ImportBatchModel,
+  OrderModel,
   ProgrammeModel,
   ReportModel,
   ReviewItemModel,
@@ -21,11 +23,16 @@ import type {
   AdminRepository,
   AdminUser,
   AuditEntry,
+  Coupon,
+  CouponRepository,
   Correction,
   CorrectionResult,
   DatasetMeta,
   DatasetRepository,
   LoadedDataset,
+  Order,
+  OrderListFilter,
+  OrderRepository,
   ReportRepository,
   StoredReport,
 } from './types';
@@ -34,6 +41,7 @@ import type { ClusterDefinition, ProgrammeRecord, SubClusterRequirement } from '
 import { key2 } from '../modules/import/nameMatch';
 import { mapProgramme, overrideRequirementSlot, revalidateForSubCluster } from '../modules/import/corrections';
 import crypto from 'node:crypto';
+import { computeOrderStats } from '../modules/payments/stats';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CHUNK = 1000;
@@ -326,5 +334,69 @@ export class MongoAdminRepository implements AdminRepository {
   }
   async recordSuccess(email: string): Promise<void> {
     await AdminUserModel.updateOne({ email: email.toLowerCase() }, { failedLogins: 0, $unset: { lockedUntil: '' }, lastLoginAt: new Date() });
+  }
+}
+
+const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Splits a patch into $set (defined values) and $unset (explicitly undefined values). */
+function splitPatch(patch: Partial<Order>): { $set: Record<string, unknown>; $unset?: Record<string, ''> } {
+  const $set: Record<string, unknown> = {};
+  const $unset: Record<string, ''> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) $unset[k] = '';
+    else $set[k] = v;
+  }
+  return Object.keys($unset).length ? { $set, $unset } : { $set };
+}
+
+export class MongoOrderRepository implements OrderRepository {
+  async create(o: Order): Promise<void> {
+    await OrderModel.create(o);
+  }
+  async get(reportId: string): Promise<Order | null> {
+    return (await OrderModel.findOne({ reportId }).lean()) as Order | null;
+  }
+  async getByCheckoutRequestId(checkoutRequestId: string): Promise<Order | null> {
+    return (await OrderModel.findOne({ checkoutRequestId }).lean()) as Order | null;
+  }
+  async update(reportId: string, patch: Partial<Order>): Promise<Order | null> {
+    return (await OrderModel.findOneAndUpdate({ reportId }, splitPatch(patch), { new: true }).lean()) as Order | null;
+  }
+  async markPaidOnce(reportId: string, patch: Partial<Order>): Promise<Order | null> {
+    const { $set, $unset } = splitPatch(patch);
+    return (await OrderModel.findOneAndUpdate({ reportId, status: { $ne: 'paid' } }, { $set: { ...$set, status: 'paid' }, ...($unset ? { $unset } : {}) }, { new: true }).lean()) as Order | null;
+  }
+  async list(f: OrderListFilter): Promise<{ total: number; items: Order[] }> {
+    const filter: Record<string, unknown> = {};
+    if (f.status) filter.status = f.status;
+    if (f.q) {
+      const rx = new RegExp(escapeRegex(f.q), 'i');
+      filter.$or = [{ email: rx }, { candidateName: rx }, { reportId: rx }, { mpesaReceipt: rx }];
+    }
+    const [total, items] = await Promise.all([OrderModel.countDocuments(filter), OrderModel.find(filter).sort({ createdAt: -1 }).skip(f.skip).limit(f.limit).lean()]);
+    return { total, items: items as Order[] };
+  }
+  async stats(now: Date) {
+    const rows = (await OrderModel.find({}).select('createdAt status amountDue paidAt couponCode').limit(100_000).lean()) as Order[];
+    return computeOrderStats(rows, now);
+  }
+}
+
+export class MongoCouponRepository implements CouponRepository {
+  async create(c: Coupon): Promise<void> {
+    await CouponModel.create(c);
+  }
+  async get(code: string): Promise<Coupon | null> {
+    return (await CouponModel.findOne({ code }).lean()) as Coupon | null;
+  }
+  async list(): Promise<Coupon[]> {
+    return (await CouponModel.find({}).sort({ createdAt: -1 }).lean()) as Coupon[];
+  }
+  async setActive(code: string, active: boolean): Promise<Coupon | null> {
+    return (await CouponModel.findOneAndUpdate({ code }, { $set: { active } }, { new: true }).lean()) as Coupon | null;
+  }
+  async incrementUsed(code: string): Promise<void> {
+    await CouponModel.updateOne({ code }, { $inc: { usedCount: 1 } });
   }
 }

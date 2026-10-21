@@ -5,14 +5,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { asyncH, requireAuth } from '../middleware/auth';
 import { noStore, adminLimiter } from '../middleware/security';
-import { auditQuery, correctionBody, importQuery, loginBody, pagingQuery, versionParam } from '../validators';
+import { auditQuery, correctionBody, couponActiveBody, couponBody, couponCodeParam, orderListQuery, reportIdParam, importQuery, loginBody, pagingQuery, versionParam } from '../validators';
 import { ok } from '../../utils/response';
 import crypto from 'node:crypto';
 import { badRequest, notFound, unauthorized } from '../../utils/errors';
 import type { AdminService } from '../../services/admin.service';
+import type { DashboardService } from '../../services/dashboard.service';
 import type { Env } from '../../config/env';
 
-export function adminRoutes(deps: { admin: AdminService; env: Env }): Router {
+export function adminRoutes(deps: { admin: AdminService; dashboard: DashboardService; env: Env }): Router {
   const r = Router();
   r.use(adminLimiter(deps.env), noStore);
 
@@ -80,6 +81,33 @@ export function adminRoutes(deps: { admin: AdminService; env: Env }): Router {
   r.get('/audit', asyncH(async (req, res) => {
     const q = auditQuery.parse(req.query);
     res.json(ok(await deps.admin.audit(q.limit)));
+  }));
+
+  // --- Business dashboard: reports, revenue, coupons ---
+  r.get('/stats', asyncH(async (_req, res) => void res.json(ok(await deps.dashboard.stats()))));
+  r.get('/orders', asyncH(async (req, res) => {
+    const q = orderListQuery.parse(req.query);
+    res.json(ok(await deps.dashboard.listOrders({ status: q.status, q: q.q, limit: q.limit, skip: q.skip })));
+  }));
+  r.get('/orders.csv', asyncH(async (_req, res) => {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="orders.csv"');
+    res.end(await deps.dashboard.ordersCsv());
+  }));
+  r.post('/orders/:reportId/resend', asyncH(async (req, res) => {
+    const { reportId } = reportIdParam.parse(req.params);
+    res.json(ok(await deps.dashboard.resendEmail(req.principal!, reportId)));
+  }));
+  r.get('/coupons', asyncH(async (_req, res) => void res.json(ok(await deps.dashboard.listCoupons()))));
+  r.post('/coupons', asyncH(async (req, res) => {
+    const b = couponBody.parse(req.body);
+    const c = await deps.dashboard.createCoupon(req.principal!, { code: b.code, percentOff: b.percentOff, maxUses: b.maxUses, expiresAt: b.expiresAt ? new Date(b.expiresAt) : undefined, note: b.note });
+    res.status(201).json(ok(c));
+  }));
+  r.post('/coupons/:code/active', asyncH(async (req, res) => {
+    const { code } = couponCodeParam.parse(req.params);
+    const b = couponActiveBody.parse(req.body);
+    res.json(ok(await deps.dashboard.setCouponActive(req.principal!, code, b.active)));
   }));
   return r;
 }

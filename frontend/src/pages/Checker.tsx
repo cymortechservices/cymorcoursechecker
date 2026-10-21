@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, ClipboardList, Loader2, Plus, Sparkles, Star, Trash2, User } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, ClipboardList, Loader2, Lock, Plus, Sparkles, Star, Trash2, User, X } from 'lucide-react';
 import { ApiError, SubjectInfo, api, session } from '../lib/api';
-import { Details, GRADE_LIST, Prefs, detailsSchema, gradesSchema, preferencesSchema } from '../lib/schemas';
+import { Details, GRADE_LIST, detailsSchema, gradesSchema } from '../lib/schemas';
+import { SUPPORT_EMAIL } from '../lib/site';
 import { LogoMark } from '../components/Logo';
 import SubjectPicker from '../components/SubjectPicker';
 import { FALLBACK_SUBJECTS } from '../lib/subjects.fallback';
@@ -30,7 +31,7 @@ const STEPS = [
   { label: 'Review', icon: CheckCircle2 },
 ];
 const gradeColor = (g: string) => (pts(g) >= 10 ? 'bg-emerald-500 text-white' : pts(g) >= 7 ? 'bg-violet-600 text-white' : pts(g) >= 4 ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white');
-const MESSAGES = ['Reading your grades…', 'Matching cluster subjects…', 'Checking subject requirements…', 'Comparing with cutoffs at every university…', 'Building your six choices…'];
+const MESSAGES = ['Reading your grades…', 'Matching cluster subjects…', 'Checking subject requirements…', 'Comparing with cutoffs at every university…', 'Preparing your results…'];
 
 export default function Checker() {
   const nav = useNavigate();
@@ -47,11 +48,24 @@ export default function Checker() {
   const [msg, setMsg] = useState(0);
   const [submitErr, setSubmitErr] = useState('');
 
-  const details = useForm<Details>({ resolver: zodResolver(detailsSchema), defaultValues: { name: '', reference: '' } });
-  const prefs = useForm<Prefs>({ resolver: zodResolver(preferencesSchema), defaultValues: { prefs: [{ value: '' }] } });
-  const pf = useFieldArray({ control: prefs.control, name: 'prefs' });
+  const details = useForm<Details>({ resolver: zodResolver(detailsSchema), defaultValues: { email: '', name: '', reference: '' } });
+  const [prefs, setPrefs] = useState<string[]>([]);
+  const [prefText, setPrefText] = useState('');
+  const [suggest, setSuggest] = useState<string[]>([]);
 
   useEffect(() => { api.subjects().then((s) => setSubjects(s.subjects)).catch((e: ApiError) => setLoadErr(e.message)); }, []);
+  useEffect(() => {
+    const q = prefText.trim();
+    if (q.length < 2) { setSuggest([]); return undefined; }
+    const t = window.setTimeout(() => { api.programmeNames(q).then(setSuggest).catch(() => setSuggest([])); }, 250);
+    return () => window.clearTimeout(t);
+  }, [prefText]);
+  const addPref = (raw: string) => {
+    const v = raw.trim().replace(/\s+/g, ' ').slice(0, 120);
+    if (!v) return;
+    setPrefs((p) => (p.length >= 10 || p.some((x) => x.toLowerCase() === v.toLowerCase()) ? p : [...p, v]));
+    setPrefText(''); setSuggest([]);
+  };
   useEffect(() => { if (!busy) return; const t = window.setInterval(() => setMsg((m) => (m + 1) % MESSAGES.length), 1400); return () => window.clearInterval(t); }, [busy]);
 
   const byCode = useMemo(() => new Map(subjects.map((s) => [s.code, s] as const)), [subjects]);
@@ -68,7 +82,15 @@ export default function Checker() {
     { ok: others.length >= 4, label: `${Math.min(others.length, 4)}/4 other subjects` },
   ];
   const complete = checklist.every((c) => c.ok);
-  const preview = complete ? ['eng', 'kis', 'math'].reduce((s, k) => s + pts(filled.find((r) => r.kind === k)?.grade ?? ''), 0) + others.map((r) => pts(r.grade)).sort((a, b) => b - a).slice(0, 4).reduce((a, b) => a + b, 0) : null;
+  // Aggregate: Mathematics + the better of English/Kiswahili + the best five of the remaining subjects
+  // (the weaker language competes with the others for those five places).
+  const preview = (() => {
+    if (!complete) return null;
+    const g = (k: Kind) => pts(filled.find((r) => r.kind === k)?.grade ?? '');
+    const eng = g('eng'); const kis = g('kis');
+    const rest = [...others.map((r) => pts(r.grade)), Math.min(eng, kis)].sort((a, b) => b - a).slice(0, 5);
+    return g('math') + Math.max(eng, kis) + rest.reduce((a, b) => a + b, 0);
+  })();
 
   const setRow = (id: number, patch: Partial<Row>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const go = (n: number) => { setDir(n > step ? 1 : -1); setStep(n); };
@@ -92,7 +114,6 @@ export default function Checker() {
   async function next() {
     if (step === 0 && !(await details.trigger())) return;
     if (step === 1 && !(await validateGrades())) return;
-    if (step === 2 && !(await prefs.trigger())) return;
     go(step + 1);
   }
 
@@ -102,10 +123,10 @@ export default function Checker() {
     try {
       const d = details.getValues();
       const out = await api.run({
+        email: d.email,
         candidate: { name: d.name || undefined, reference: d.reference || undefined },
         grades: filled.map((r) => ({ subject: r.subject, grade: r.grade })),
-        preferences: prefs.getValues().prefs.map((p) => p.value.trim()).filter(Boolean),
-        pageSize: 25,
+        preferences: prefs,
       });
       const wait = Math.max(0, 1800 - (Date.now() - started)); // let the progress animation be seen
       await new Promise((r) => setTimeout(r, reduce ? 0 : wait));
@@ -125,7 +146,7 @@ export default function Checker() {
       <div className="relative mx-auto max-w-3xl px-4 pt-10">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center text-white">
           <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Check your courses</h1>
-          <p className="mt-2 text-slate-300">Four quick steps. Nothing is saved until you press “Show my courses”.</p>
+          <p className="mt-2 text-slate-300">Four quick steps. See how many courses you qualify for free, then unlock the full list and PDF report.</p>
         </motion.div>
 
         {/* Stepper */}
@@ -153,11 +174,15 @@ export default function Checker() {
             <motion.section key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.28, ease: 'easeOut' }}>
               {step === 0 && (
                 <div className="space-y-5">
-                  <div><h2 className="font-display text-2xl font-extrabold text-ink">Your details <span className="text-base font-normal text-slate-500">(optional)</span></h2>
-                    <p className="mt-1 text-slate-600">These only appear on your PDF report. You can leave both blank.</p></div>
-                  <label className="block"><span className="font-medium text-ink">Name</span><input className="input mt-1" autoComplete="off" placeholder="e.g. Amina Wanjiru" {...details.register('name')} /></label>
+                  <div><h2 className="font-display text-2xl font-extrabold text-ink">Your details</h2>
+                    <p className="mt-1 text-slate-600">We email your PDF report to the address below so you can keep it for later. We never share it.</p></div>
+                  <label className="block"><span className="font-medium text-ink">Email address <span className="text-rose-600">*</span></span><input type="email" inputMode="email" className="input mt-1" autoComplete="email" placeholder="you@example.com" aria-required="true" {...details.register('email')} /></label>
+                  {details.formState.errors.email && <p role="alert" className="text-sm text-red-700">{details.formState.errors.email.message}</p>}
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <label className="block"><span className="font-medium text-ink">Name <span className="text-sm font-normal text-slate-500">(optional)</span></span><input className="input mt-1" autoComplete="name" placeholder="e.g. Amina Wanjiru" {...details.register('name')} /></label>
+                    <label className="block"><span className="font-medium text-ink">Index number <span className="text-sm font-normal text-slate-500">(optional)</span></span><input className="input mt-1" autoComplete="off" placeholder="e.g. 12345678/2025" {...details.register('reference')} /></label>
+                  </div>
                   {details.formState.errors.name && <p className="text-sm text-red-700">{details.formState.errors.name.message}</p>}
-                  <label className="block"><span className="font-medium text-ink">Index number or reference</span><input className="input mt-1" autoComplete="off" placeholder="e.g. 12345678/2025" {...details.register('reference')} /></label>
                   {details.formState.errors.reference && <p className="text-sm text-red-700">{details.formState.errors.reference.message}</p>}
                 </div>
               )}
@@ -225,18 +250,34 @@ export default function Checker() {
 
               {step === 2 && (
                 <div className="space-y-5">
-                  <div><h2 className="font-display text-2xl font-extrabold text-ink">Programme preferences <span className="text-base font-normal text-slate-500">(optional)</span></h2>
-                    <p className="mt-1 text-slate-600">List programmes you would like, in order (for example “Bachelor of Science in Nursing”). Your six suggested choices will favour them if you qualify. Leave blank to get suggestions from your results.</p></div>
-                  <AnimatePresence initial={false}>
-                    {pf.fields.map((f, i) => (
-                      <motion.div key={f.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -30 }} className="flex items-center gap-2">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 font-bold text-violet-700">{i + 1}</span>
-                        <input aria-label={`Preference ${i + 1}`} className="input" placeholder="Programme name" {...prefs.register(`prefs.${i}.value` as const)} />
-                        <button type="button" aria-label="Remove preference" className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" onClick={() => pf.remove(i)}><Trash2 size={18} aria-hidden /></button>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  <button type="button" className="btn btn-ghost" disabled={pf.fields.length >= 6} onClick={() => pf.append({ value: '' })}><Plus size={18} aria-hidden /> Add preference</button>
+                  <div><h2 className="font-display text-2xl font-extrabold text-ink">Courses you would love <span className="text-base font-normal text-slate-500">(optional)</span></h2>
+                    <p className="mt-1 text-slate-600">Add the courses you prefer. If you qualify for them, they are placed first in your recommended choices. You can skip this step.</p></div>
+                  <div className="relative">
+                    <label className="block"><span className="sr-only">Preferred course</span>
+                      <input className="input" value={prefText} maxLength={120} placeholder="Type a course, e.g. Nursing, Computer Science, Law" onChange={(e) => setPrefText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPref(prefText); } }} />
+                    </label>
+                    <AnimatePresence>
+                      {suggest.length > 0 && (
+                        <motion.ul initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                          {suggest.map((n) => <li key={n}><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-violet-50" onClick={() => addPref(n)}>{n}</button></li>)}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <button type="button" className="btn btn-ghost" disabled={!prefText.trim() || prefs.length >= 10} onClick={() => addPref(prefText)}><Plus size={18} aria-hidden /> Add course</button>
+                  {prefs.length > 0 && (
+                    <ul className="flex flex-wrap gap-2" aria-label="Your preferred courses">
+                      <AnimatePresence initial={false}>
+                        {prefs.map((p, i) => (
+                          <motion.li key={p} layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="inline-flex items-center gap-2 rounded-full bg-violet-100 py-1.5 pl-3 pr-1.5 text-sm font-medium text-violet-900">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-xs font-bold text-white">{i + 1}</span>{p}
+                            <button type="button" aria-label={`Remove ${p}`} className="rounded-full p-1 text-violet-700 hover:bg-violet-200" onClick={() => setPrefs((x) => x.filter((y) => y !== p))}><X size={14} aria-hidden /></button>
+                          </motion.li>
+                        ))}
+                      </AnimatePresence>
+                    </ul>
+                  )}
+                  <p className="text-sm text-slate-500">Up to 10 courses. The first ones you add are favoured first.</p>
                 </div>
               )}
 
@@ -252,7 +293,9 @@ export default function Checker() {
                       </motion.li>
                     ))}
                   </ul>
-                  {preview !== null && <p className="rounded-xl bg-violet-50 p-3 text-violet-900">Aggregate preview: <strong>{preview}/84</strong> (English, Kiswahili, Mathematics and your best four others).</p>}
+                  {preview !== null && <p className="rounded-xl bg-violet-50 p-3 text-violet-900">Aggregate preview: <strong>{preview}/84</strong> (Mathematics, the better of English and Kiswahili, and your best five other subjects).</p>}
+                  {prefs.length > 0 && <p className="text-sm text-slate-600">Preferred courses: <strong>{prefs.join(', ')}</strong></p>}
+                  <p className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600"><Lock size={16} className="mt-0.5 shrink-0 text-violet-600" aria-hidden /> You will see how many courses you qualify for straight away. A one-time payment unlocks the full list, your recommended choices and the PDF report, which is also emailed to you. Questions? {SUPPORT_EMAIL}</p>
                   <p className="text-sm text-slate-500">Results are estimates based on a published formula and past cutoffs.</p>
                   {submitErr && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">{submitErr}</p>}
                 </div>
@@ -265,7 +308,7 @@ export default function Checker() {
             {step < 3 ? (
               <button type="button" className="btn btn-primary" disabled={checking} onClick={next}>{checking ? <Loader2 className="animate-spin" size={18} aria-hidden /> : null} Next <ArrowRight size={18} aria-hidden /></button>
             ) : (
-              <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>Show my courses <Sparkles size={18} aria-hidden /></button>
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>See my results <Sparkles size={18} aria-hidden /></button>
             )}
           </div>
         </div>

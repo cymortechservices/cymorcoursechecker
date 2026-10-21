@@ -15,10 +15,29 @@ test('score is never capped at 100 or rounded', () => {
   assert.notEqual(s, Math.round(s));
   assert.ok(s <= 48);
 });
-test('aggregate: compulsory + best four others (Maths A/B counts once)', () => {
-  const a = computeAggregate({ ENG: 'B', KIS: 'B', MATA: 'A', BIO: 'A', CHE: 'A-', PHY: 'B+', GEO: 'C', CRE: 'D' });
+test('aggregate: maths + better language + best five of the rest (weaker language competes)', () => {
+  // ENG B 9, KIS A- 11 -> KIS is the language; ENG competes with the others.
+  const a = computeAggregate({ ENG: 'B', KIS: 'A-', MATA: 'A', BIO: 'A', CHE: 'A-', PHY: 'B+', GEO: 'C', CRE: 'D' });
   assert.equal(a.ok, true);
-  // ENG 8 + KIS 8 + MATA 12 + BIO 12 + CHE 11 + PHY 9 + GEO 5
+  // MATA 12 + KIS 11 + best five of {BIO 12, CHE 11, PHY 10, ENG 9, GEO 6, CRE 3} = 12+11+10+9+6
+  assert.equal(a.t, 12 + 11 + 12 + 11 + 10 + 9 + 6);
+  assert.equal(a.subjects.length, 7);
+});
+test('aggregate: the weaker language is dropped when it is outside the best five', () => {
+  const a = computeAggregate({ ENG: 'E', KIS: 'A', MATA: 'A', BIO: 'A', CHE: 'A', PHY: 'A', GEO: 'A', CRE: 'A' });
+  assert.equal(a.ok, true);
+  assert.ok(!a.subjects.some((s) => s.code === 'ENG'));
+  assert.equal(a.t, 12 * 7);
+});
+test('aggregate: exactly seven subjects uses all of them', () => {
+  const a = computeAggregate({ ENG: 'B', KIS: 'C', MATA: 'A', BIO: 'B', CHE: 'B', PHY: 'C', GEO: 'D' });
+  assert.equal(a.t, 9 + 6 + 12 + 9 + 9 + 6 + 3);
+});
+test('aggregate: Mathematics is compulsory', () => {
+  assert.equal(computeAggregate({ ENG: 'A', KIS: 'A', BIO: 'A', CHE: 'A', PHY: 'A', GEO: 'A', CRE: 'A', BST: 'A' }).ok, false);
+});
+test('aggregate: legacy rule still available', () => {
+  const a = computeAggregate({ ENG: 'B', KIS: 'B', MATA: 'A', BIO: 'A', CHE: 'A-', PHY: 'B+', GEO: 'C', CRE: 'D' }, 'COMPULSORY_PLUS_BEST_FOUR');
   assert.equal(a.t, 9 + 9 + 12 + 12 + 11 + 10 + 6);
 });
 test('aggregate: fewer than 7 subjects is refused, not padded', () => {
@@ -26,8 +45,8 @@ test('aggregate: fewer than 7 subjects is refused, not padded', () => {
   assert.equal(a.ok, false);
   assert.equal(a.t, 0);
 });
-test('aggregate: missing a compulsory subject is refused', () => {
-  const a = computeAggregate({ ENG: 'A', MATA: 'A', BIO: 'A', CHE: 'A', PHY: 'A', GEO: 'A', CRE: 'A' });
+test('aggregate: refused when neither English nor Kiswahili is present', () => {
+  const a = computeAggregate({ MATA: 'A', BIO: 'A', CHE: 'A', PHY: 'A', GEO: 'A', CRE: 'A', BST: 'A' });
   assert.equal(a.ok, false);
 });
 test('slots: picks the highest grades that satisfy each rule without reuse', () => {

@@ -14,9 +14,10 @@
  *   The formula and the 12-point scale are described identically by several published
  *   guides, but the supplied KUCCPS PDFs do not print them and no official KUCCPS page
  *   was reachable to confirm them. The output is therefore always an ESTIMATE.
- *   Which seven subjects make up t is also not stated in the supplied documents; the
- *   default rule (English, Kiswahili, Mathematics + best four others) follows the common
- *   description of the KCSE mean-grade subjects and is configurable.
+ *   Which seven subjects make up t is not stated in the supplied documents. The default rule
+ *   follows the current KCSE mean-grade rule as given by the product owner: Mathematics is
+ *   compulsory, plus the better of English and Kiswahili, plus the best FIVE of the remaining
+ *   subjects (the weaker language competes with the others). The rule is configurable.
  *
  * PRECISION / ROUNDING
  *   The score is returned at full double precision. Display rounds to three decimals.
@@ -31,7 +32,10 @@ export const FORMULA_MAX_R = 48;
 export const FORMULA_MAX_T = 84;
 export const FORMULA_STATUS = 'secondary-source-unverified' as const;
 
-export type AggregateRule = 'COMPULSORY_PLUS_BEST_FOUR' | 'BEST_SEVEN';
+export type AggregateRule =
+  | 'MATH_BEST_LANGUAGE_BEST_FIVE' // default: Mathematics + better of English/Kiswahili + best 5 of the rest
+  | 'COMPULSORY_PLUS_BEST_FOUR' // legacy: English + Kiswahili + Mathematics + best 4 others
+  | 'BEST_SEVEN';
 
 export interface ScoringConfig {
   aggregateRule: AggregateRule;
@@ -43,7 +47,7 @@ export interface ScoringConfig {
 }
 
 export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
-  aggregateRule: 'COMPULSORY_PLUS_BEST_FOUR',
+  aggregateRule: 'MATH_BEST_LANGUAGE_BEST_FIVE',
   ordinalMode: 'strict',
 };
 
@@ -80,6 +84,22 @@ export function computeAggregate(grades: GradeMap, rule: AggregateRule = DEFAULT
   if (rule === 'BEST_SEVEN') {
     const picked = [...all].sort(byPointsThenOrder).slice(0, 7);
     return { ok: true, t: picked.reduce((s, x) => s + x.points, 0), subjects: picked };
+  }
+
+  if (rule === 'MATH_BEST_LANGUAGE_BEST_FIVE') {
+    const maths = all.filter((x) => getSubject(x.code)?.compulsoryFamily === 'MATHEMATICS').sort(byPointsThenOrder)[0];
+    const bestLanguage = all.filter((x) => x.code === 'ENG' || x.code === 'KIS').sort(byPointsThenOrder)[0];
+    if (!maths || !bestLanguage) {
+      return { ok: false, t: 0, subjects: [], reason: 'Mathematics and at least one of English or Kiswahili are required for the aggregate' };
+    }
+    const taken = new Set([maths.code, bestLanguage.code]);
+    const rest = all
+      .filter((x) => !taken.has(x.code) && getSubject(x.code)?.compulsoryFamily !== 'MATHEMATICS')
+      .sort(byPointsThenOrder)
+      .slice(0, 5);
+    if (rest.length < 5) return { ok: false, t: 0, subjects: [], reason: 'Five further subjects are required for the aggregate' };
+    const chosen = [maths, bestLanguage, ...rest];
+    return { ok: true, t: chosen.reduce((sum, x) => sum + x.points, 0), subjects: chosen };
   }
 
   const eng = all.find((x) => x.code === 'ENG');
@@ -221,6 +241,7 @@ export const SCORING_METHODOLOGY = {
   aggregateRule: DEFAULT_SCORING_CONFIG.aggregateRule,
   notes: [
     'Formula and 12-point scale are taken from published guides; the supplied KUCCPS PDFs do not state them.',
+    'Aggregate t = Mathematics + the better of English and Kiswahili + the best five of the remaining subjects (7 subjects, maximum 84).',
     'Subject groups I-V are not defined in the supplied PDFs; the catalogue follows the usual KNEC convention (assumed).',
     'Ordinal group terms such as "2nd GROUP II" are applied strictly (earlier slots must already hold that many group subjects).',
     'The score is an estimate and is not an official KUCCPS cluster score.',

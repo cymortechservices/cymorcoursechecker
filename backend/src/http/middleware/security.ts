@@ -41,6 +41,7 @@ const limited = (windowMs: number, max: number): RequestHandler =>
 
 export const publicLimiter = (env: Env) => limited(60_000, env.PUBLIC_RATE_LIMIT_PER_MIN);
 export const pdfLimiter = (env: Env) => limited(10 * 60_000, env.PDF_RATE_LIMIT_PER_10MIN);
+export const paymentLimiter = (env: Env) => limited(10 * 60_000, env.PAYMENT_RATE_LIMIT_PER_10MIN * 6);
 export const adminLimiter = (env: Env) => limited(15 * 60_000, env.ADMIN_RATE_LIMIT_PER_15MIN);
 
 export const requestTimeout = (ms: number): RequestHandler => (req, res, next) => {

@@ -7,3 +7,10 @@
 - PDFs are generated on demand and not stored.
 - Admin: bcrypt-hashed passwords, no default accounts, lockout after 5 failures, JWT in header only, all admin actions audited.
 - No secrets or candidate data are in the repository; `.env` is git-ignored.
+
+
+## Emails, payments and orders
+- An email address is required so the report can be sent; it is stored on the order and used only to send the report and for support.
+- Payment: only a masked phone number (e.g. 2547******78), amount, M-Pesa receipt and status are stored. Full numbers are never stored or logged. M-Pesa credentials live only in environment variables.
+- Reports (grades) expire after `REPORT_TTL_DAYS`. Orders (email, amount, receipt, status, no grades) are kept for accounting and the dashboard.
+- Contact for privacy or deletion requests: simion@karimique.com.

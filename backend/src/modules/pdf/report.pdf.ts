@@ -22,6 +22,7 @@ import { SCORING_METHODOLOGY } from '../scoring/clusterScore.service';
 export interface ReportData {
   siteName: string;
   supportEmail?: string;
+  supportWhatsapp?: string;
   reportId: string;
   generatedAt: Date;
   datasetVersion: string;
@@ -430,14 +431,14 @@ function glanceSection(w: Writer, d: ReportData): void {
       { title: 'Subject', width: 230 },
       { title: 'Grade', width: 70, align: 'center', bold: true },
       { title: 'Points', width: 70, align: 'center' },
-      { title: 'Aggregate (best seven)', width: CW - 370 },
+      { title: 'Counted in aggregate', width: CW - 370 },
     ],
     rows,
     section,
     { size: 10, padY: 8 },
   );
   w.notice(
-    'Calculation notes: grade points use the 12-point scale (A = 12 ... E = 1). The aggregate uses English, Kiswahili, Mathematics and your best four other subjects, a common description of the KCSE mean-grade subjects that is not stated in the KUCCPS documents supplied to this tool. The mean grade is an estimate, not an official KNEC result.',
+    'Calculation notes: grade points use the 12-point scale (A = 12 ... E = 1). The aggregate uses Mathematics, the better of English and Kiswahili, and your best five of the remaining subjects (7 subjects, maximum 84 points). This rule is not stated in the KUCCPS documents supplied to this tool. The mean grade is an estimate, not an official KNEC result.',
     section,
     'info',
   );
@@ -662,7 +663,7 @@ function methodologySection(w: Writer, d: ReportData): void {
   w.heading('Methodology and important disclaimer', 'Section 4', section);
   w.sub('How your results were produced', section);
   w.bullet(`Cutoff data: ${d.cutoffPolicyLabel}. This prefers, for each programme, the newest cutoff specific to that university; a value marked * is a shared minimum printed identically for many universities. Each listed programme shows the cutoff year actually used, and a missing cutoff is never treated as zero.`, section);
-  w.bullet(`Cluster score: ${SCORING_METHODOLOGY.formula}, where r is the sum of your points in the four cluster subjects and t is your aggregate (best seven subjects). This is an ESTIMATE based on a formula published by third parties, not an official KUCCPS score.`, section);
+  w.bullet(`Cluster score: ${SCORING_METHODOLOGY.formula}, where r is the sum of your points in the four cluster subjects and t is your aggregate (Mathematics + the better of English/Kiswahili + your best five other subjects). This is an ESTIMATE based on a formula published by third parties, not an official KUCCPS score.`, section);
   w.bullet('A programme is listed only when (1) the published minimum subject requirements are met and (2) your estimated cluster score is equal to or greater than the selected cutoff. The comparison uses exact arithmetic, not rounded display values.', section);
   w.bullet('Historical cutoffs describe past cycles and are not a guarantee or prediction of future placement.', section);
   w.bullet('KUCCPS remains the authority for programme requirements, application instructions and placement. Confirm current requirements and programme availability before you apply.', section);
@@ -686,7 +687,47 @@ function methodologySection(w: Writer, d: ReportData): void {
     'CYMOR CourseChecker is an independent guidance tool. It is not affiliated with KUCCPS and does not guarantee admission, placement or programme availability. Subject groups and the aggregate rule used here follow common convention where the supplied documents are silent; they are listed in the project documentation so they can be verified.',
     section,
   );
-  if (d.supportEmail) w.paragraph(`Questions about this report: ${d.supportEmail}`, section, { size: 10 });
+  if (d.supportEmail) w.paragraph(`Questions about this report: ${d.supportEmail}${d.supportWhatsapp ? `  |  WhatsApp ${d.supportWhatsapp}` : ''}`, section, { size: 10 });
+}
+
+/* --------------------------------------------------------- closing note */
+function closingSection(w: Writer, d: ReportData): void {
+  const section = 'A note from Cymor';
+  w.newContentPage(section);
+  const [pw] = A4;
+  const top = w.y + 20;
+  const h = 360;
+  w.roundRect(M, top, CW, h, 14, C.violetSoft);
+  w.page.drawRectangle({ x: M, y: top - 6, width: CW, height: 6, color: C.violet });
+  const cx = pw / 2;
+  const center = (txt: string, y: number, size: number, font: PDFFont, color: Color) => {
+    const t = sanitizeForPdf(txt, font);
+    w.page.drawText(t, { x: cx - font.widthOfTextAtSize(t, size) / 2, y, size, font, color });
+  };
+  center('A MESSAGE FOR YOUR FUTURE', top - 52, 9, w.bold, C.violet);
+  center('Go well. Study well. Rise.', top - 92, 26, w.bold, C.ink);
+  let y = top - 128;
+  const name = d.candidateName?.trim();
+  const msg = `${name ? name + ', ' : ''}the work you put into these years has brought you to this page, and this is only the beginning. Whichever programme and university you choose, bring the same courage and discipline with you. Legendary Smiley Cymor wishes you the very best in your future education.`;
+  for (const line of wrap(msg, w.regular, 12, CW - 90)) {
+    center(line, y, 12, w.regular, C.body);
+    y -= 19;
+  }
+  y -= 14;
+  center('Legendary Smiley Cymor', y, 20, w.italic, C.violet);
+  y -= 20;
+  center('CYMOR CourseChecker', y, 10, w.bold, C.muted);
+  y -= 38;
+  w.page.drawRectangle({ x: cx - 30, y, width: 60, height: 1.2, color: C.line });
+  y -= 22;
+  center('Need help with this report?', y, 10.5, w.bold, C.ink);
+  y -= 17;
+  if (d.supportEmail) {
+    center(`Email  ${d.supportEmail}`, y, 10.5, w.regular, C.body);
+    y -= 15;
+  }
+  if (d.supportWhatsapp) center(`WhatsApp  ${d.supportWhatsapp}`, y, 10.5, w.regular, C.body);
+  w.y = top - h - 20;
 }
 
 function finishFooters(w: Writer, d: ReportData): void {
@@ -716,6 +757,7 @@ export async function generateReportPdf(d: ReportData): Promise<Uint8Array> {
   qualifyingSection(w, d);
   glanceSection(w, d);
   methodologySection(w, d);
+  closingSection(w, d);
   finishFooters(w, d);
   return w.pdf.save();
 }

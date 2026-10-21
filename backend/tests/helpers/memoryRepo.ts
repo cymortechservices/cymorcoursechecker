@@ -180,3 +180,42 @@ export class MemoryAdminRepository implements AdminRepository {
 export function randomId() {
   return crypto.randomBytes(8).toString('hex');
 }
+
+/* ------------------------------------------------------------------ orders / coupons (test doubles) */
+import type { Coupon, CouponRepository, Order, OrderListFilter, OrderRepository } from '../../src/repositories/types';
+import { computeOrderStats } from '../../src/modules/payments/stats';
+
+export class MemoryOrderRepository implements OrderRepository {
+  public orders = new Map<string, Order>();
+  async create(o: Order) { this.orders.set(o.reportId, structuredClone(o)); }
+  async get(id: string) { const o = this.orders.get(id); return o ? structuredClone(o) : null; }
+  async getByCheckoutRequestId(id: string) { for (const o of this.orders.values()) if (o.checkoutRequestId === id) return structuredClone(o); return null; }
+  async update(id: string, patch: Partial<Order>) {
+    const o = this.orders.get(id);
+    if (!o) return null;
+    Object.assign(o, patch);
+    return structuredClone(o);
+  }
+  async markPaidOnce(id: string, patch: Partial<Order>) {
+    const o = this.orders.get(id);
+    if (!o || o.status === 'paid') return null;
+    Object.assign(o, patch, { status: 'paid' as const });
+    return structuredClone(o);
+  }
+  async list(f: OrderListFilter) {
+    let all = [...this.orders.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    if (f.status) all = all.filter((o) => o.status === f.status);
+    if (f.q) { const n = f.q.toLowerCase(); all = all.filter((o) => `${o.email} ${o.candidateName ?? ''} ${o.reportId} ${o.mpesaReceipt ?? ''}`.toLowerCase().includes(n)); }
+    return { total: all.length, items: all.slice(f.skip, f.skip + f.limit).map((o) => structuredClone(o)) };
+  }
+  async stats(now: Date) { return computeOrderStats([...this.orders.values()], now); }
+}
+
+export class MemoryCouponRepository implements CouponRepository {
+  public coupons = new Map<string, Coupon>();
+  async create(c: Coupon) { this.coupons.set(c.code, structuredClone(c)); }
+  async get(code: string) { const c = this.coupons.get(code); return c ? structuredClone(c) : null; }
+  async list() { return [...this.coupons.values()].map((c) => structuredClone(c)); }
+  async setActive(code: string, active: boolean) { const c = this.coupons.get(code); if (!c) return null; c.active = active; return structuredClone(c); }
+  async incrementUsed(code: string) { const c = this.coupons.get(code); if (c) c.usedCount++; }
+}

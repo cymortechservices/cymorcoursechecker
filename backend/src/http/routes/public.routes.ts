@@ -1,22 +1,24 @@
 import { Router } from 'express';
 import { asyncH } from '../middleware/auth';
-import { noStore, pdfLimiter } from '../middleware/security';
-import { checkBody, programmeSearchQuery, reportIdParam, resultsQuerySchema, validateBody } from '../validators';
+import { noStore, paymentLimiter, pdfLimiter } from '../middleware/security';
+import { checkBody, nameSuggestQuery, payBody, programmeSearchQuery, quoteBody, reportIdParam, resultsQuerySchema, validateBody } from '../validators';
 import { ok } from '../../utils/response';
 import { publicSubjects, GRADES, GRADE_POINTS, SUBJECT_CATALOGUE_VERSION } from '../../modules/subjects/catalogue';
 import { SCORING_METHODOLOGY } from '../../modules/scoring/clusterScore.service';
 import type { CheckerService } from '../../services/checker.service';
+import type { PaymentService } from '../../services/payment.service';
+import type { ReportEmailService } from '../../services/reportEmail.service';
 import type { DatasetCache } from '../../services/datasetCache';
 import type { Env } from '../../config/env';
 import { notFound } from '../../utils/errors';
 
-export function publicRoutes(deps: { checker: CheckerService; cache: DatasetCache; env: Env; isDbReady: () => boolean }): Router {
+export function publicRoutes(deps: { checker: CheckerService; payments: PaymentService; emails: ReportEmailService; cache: DatasetCache; env: Env; isDbReady: () => boolean }): Router {
   const r = Router();
   const token = (req: Parameters<Parameters<typeof asyncH>[0]>[0]) => req.header('x-report-token') ?? undefined;
 
   // Friendly index so opening the API address in a browser shows that it is running and which routes exist.
   r.get('/', (_req, res) => {
-    res.json(ok({ service: deps.env.SITE_NAME, status: 'running', version: 'v1', routes: ['/health', '/subjects', '/metadata', '/checker/validate', '/checker/results', '/results/:reportId', '/results/:reportId/choices', '/reports/:reportId/pdf', '/institutions', '/cutoff-years', '/programmes'] }));
+    res.json(ok({ service: deps.env.SITE_NAME, status: 'running', version: 'v1', routes: ['/health', '/subjects', '/metadata', '/checker/validate', '/checker/results', '/results/:reportId/summary', '/results/:reportId', '/results/:reportId/choices', '/payments/:reportId/quote', '/payments/:reportId/pay', '/payments/:reportId/status', '/reports/:reportId/pdf', '/institutions', '/cutoff-years', '/programmes'] }));
   });
 
   r.get('/health', (_req, res) => {
@@ -49,11 +51,60 @@ export function publicRoutes(deps: { checker: CheckerService; cache: DatasetCach
 
   r.post('/checker/results', noStore, asyncH(async (req, res) => {
     const b = checkBody.parse(req.body);
-    const out = await deps.checker.run(
-      { candidate: b.candidate, grades: b.grades, preferences: b.preferences, cutoffPolicy: b.cutoffPolicy },
-      { page: b.page ?? 1, pageSize: b.pageSize ?? 25, sort: 'cutoff', order: 'desc' },
-    );
+    const out = await deps.checker.run({ candidate: b.candidate, email: b.email, grades: b.grades, preferences: b.preferences, cutoffPolicy: b.cutoffPolicy });
     res.status(201).json(ok(out));
+  }));
+
+  // Teaser (counts only) + payment state; allowed before payment.
+  r.get('/results/:reportId/summary', noStore, asyncH(async (req, res) => {
+    const { reportId } = reportIdParam.parse(req.params);
+    res.json(ok(await deps.checker.getSummary(reportId, token(req))));
+  }));
+
+  r.get('/pricing', (_req, res) => {
+    res.json(ok({ currency: 'KES', priceKes: deps.env.PRICE_KES, paymentsAvailable: deps.payments.paymentsAvailable, support: { email: deps.env.SUPPORT_EMAIL, whatsapp: deps.env.SUPPORT_WHATSAPP } }));
+  });
+
+  r.post('/payments/:reportId/quote', paymentLimiter(deps.env), noStore, asyncH(async (req, res) => {
+    const { reportId } = reportIdParam.parse(req.params);
+    await deps.checker.authorise(reportId, token(req));
+    const b = quoteBody.parse(req.body ?? {});
+    res.json(ok(await deps.payments.quote(b.couponCode)));
+  }));
+
+  r.post('/payments/:reportId/pay', paymentLimiter(deps.env), noStore, asyncH(async (req, res) => {
+    const { reportId } = reportIdParam.parse(req.params);
+    const report = await deps.checker.authorise(reportId, token(req));
+    const b = payBody.parse(req.body ?? {});
+    res.json(ok(await deps.payments.initiate(report, b)));
+  }));
+
+  r.get('/payments/:reportId/status', noStore, asyncH(async (req, res) => {
+    const { reportId } = reportIdParam.parse(req.params);
+    const report = await deps.checker.authorise(reportId, token(req));
+    res.json(ok(await deps.payments.status(report)));
+  }));
+
+  // User-triggered re-send of the report email (paid reports only).
+  r.post('/reports/:reportId/email', paymentLimiter(deps.env), noStore, asyncH(async (req, res) => {
+    const { reportId } = reportIdParam.parse(req.params);
+    await deps.checker.authorise(reportId, token(req));
+    await deps.checker.getRecommendations(reportId, token(req)); // 402 unless paid
+    res.json(ok({ result: await deps.emails.deliver(reportId) }));
+  }));
+
+  // Distinct programme names for the optional preference picker.
+  r.get('/programme-names', asyncH(async (req, res) => {
+    const q = nameSuggestQuery.parse(req.query);
+    const ds = await deps.cache.active();
+    const needle = q.q.toLowerCase();
+    const names = new Set<string>();
+    for (const p of ds.loaded.programmes) {
+      if (p.verificationStatus !== 'validated') continue;
+      if (!needle || p.programmeName.toLowerCase().includes(needle)) names.add(p.programmeName);
+      if (names.size >= 400) break;
+    }
+    res.json(ok([...names].sort((a, b) => a.localeCompare(b)).slice(0, q.limit)));
   }));
 
   // Token travels in the X-Report-Token header (never in the URL).

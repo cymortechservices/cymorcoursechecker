@@ -5,7 +5,7 @@
  */
 import crypto from 'node:crypto';
 import { DatasetCache } from './datasetCache';
-import type { ReportRepository, StoredReport } from '../repositories/types';
+import type { Order, OrderRepository, ReportRepository, StoredReport } from '../repositories/types';
 import { evaluateCandidate, EligibilityResult, QualifyingOption } from '../modules/eligibility/eligibility.service';
 import { CutoffPolicy, DEFAULT_CUTOFF_POLICY, describePolicy } from '../modules/eligibility/cutoff';
 import { GradeEntry, validateCandidateGrades } from '../modules/subjects/gradeInput';
@@ -16,6 +16,8 @@ import { badRequest, notFound, forbidden, AppError } from '../utils/errors';
 
 export interface CheckerInput {
   candidate: { name?: string; reference?: string };
+  /** Required: used to email the report and for payment receipts. */
+  email: string;
   grades: GradeEntry[];
   preferences?: string[];
   cutoffPolicy?: CutoffPolicy;
@@ -106,9 +108,13 @@ export function filterSortPage(options: readonly QualifyingOption[], q: ResultsQ
 export interface CheckerDeps {
   datasets: DatasetCache;
   reports: ReportRepository;
+  orders: OrderRepository;
+  /** Price in KES before coupons. */
+  priceKes: number;
   reportTtlDays: number;
   siteName: string;
   supportEmail?: string;
+  supportWhatsapp?: string;
   now?: () => Date;
 }
 
@@ -149,7 +155,11 @@ export class CheckerService {
     };
   }
 
-  async run(input: CheckerInput, pageQuery: ResultsQuery) {
+  /**
+   * Evaluates the candidate, stores a short-lived report and an order, and returns only a TEASER
+   * (counts). The programme list, recommended choices and PDF stay locked until the order is paid.
+   */
+  async run(input: CheckerInput) {
     const v = validateCandidateGrades(input.grades);
     if (!v.ok) throw badRequest('Some grades are missing or invalid', v.errors);
     const ds = await this.deps.datasets.active();
@@ -166,13 +176,26 @@ export class CheckerService {
       cutoffPolicy: policy,
       candidate: { name: input.candidate.name?.trim() || undefined, reference: input.candidate.reference?.trim() || undefined },
       grades: v.grades,
-      preferences: (input.preferences ?? []).slice(0, 10),
+      preferences: (input.preferences ?? []).map((p) => p.trim()).filter(Boolean).slice(0, 10),
       qualifyingCount: 0,
     };
     const result = evaluateCandidate(stored.grades, ds.loaded.programmes, ds.view, { cutoffPolicy: policy });
     if (!result.aggregate.ok) throw badRequest(result.aggregate.reason ?? 'Aggregate could not be computed');
     stored.qualifyingCount = result.options.length;
     await this.deps.reports.create(stored);
+    const order: Order = {
+      reportId,
+      createdAt: created,
+      email: input.email.trim().toLowerCase(),
+      candidateName: stored.candidate.name,
+      datasetVersion: stored.datasetVersion,
+      qualifyingCount: stored.qualifyingCount,
+      status: 'unpaid',
+      listPrice: this.deps.priceKes,
+      amountDue: this.deps.priceKes,
+      emailStatus: 'none',
+    };
+    await this.deps.orders.create(order);
     return {
       reportId,
       accessToken: token,
@@ -183,13 +206,24 @@ export class CheckerService {
       formulaStatus: FORMULA_STATUS,
       scoreIsEstimate: true as const,
       warnings: v.warnings,
-      summary: this.summarise(result, stored.datasetVersion),
-      results: filterSortPage(result.options, pageQuery),
-      diagnostics: result.diagnostics,
+      summary: this.teaser(result),
+      payment: { required: true as const, status: order.status, listPrice: order.listPrice, amountDue: order.amountDue },
     };
   }
 
-  private async authorise(reportId: string, token: string | undefined): Promise<StoredReport> {
+  /** Counts only: safe to show before payment. */
+  private teaser(result: EligibilityResult) {
+    const by = { safe: 0, balanced: 0, competitive: 0 };
+    for (const o of result.options) by[competitivenessOf(o.margin)]++;
+    return {
+      qualifyingOptions: result.options.length,
+      aggregatePoints: result.aggregate.t,
+      estimatedMeanGrade: meanGradeFromAggregate(result.aggregate.t),
+      byLevel: by,
+    };
+  }
+
+  async authorise(reportId: string, token: string | undefined): Promise<StoredReport> {
     const report = await this.deps.reports.get(reportId);
     if (!report) throw notFound('Report not found or expired');
     if (!token) throw forbidden('A report access token is required');
@@ -199,8 +233,29 @@ export class CheckerService {
     return report;
   }
 
+  private async requirePaid(reportId: string): Promise<void> {
+    const order = await this.deps.orders.get(reportId);
+    if (!order || order.status !== 'paid') {
+      throw new AppError(402, 'PAYMENT_REQUIRED', 'Payment is required to view the results and download the report.', { listPrice: order?.listPrice ?? this.deps.priceKes, amountDue: order?.amountDue ?? this.deps.priceKes });
+    }
+  }
+
+  /** Teaser + payment state. Allowed before payment (needs the report token). */
+  async getSummary(reportId: string, token: string | undefined) {
+    const report = await this.authorise(reportId, token);
+    const { result } = await this.evaluate(report);
+    const order = await this.deps.orders.get(reportId);
+    return {
+      reportId,
+      expiresAt: report.expiresAt.toISOString(),
+      summary: this.teaser(result),
+      payment: order ? { status: order.status, paid: order.status === 'paid', listPrice: order.listPrice, amountDue: order.amountDue, couponCode: order.couponCode ?? null } : null,
+    };
+  }
+
   async getResults(reportId: string, token: string | undefined, query: ResultsQuery) {
     const report = await this.authorise(reportId, token);
+    await this.requirePaid(reportId);
     const { result } = await this.evaluate(report);
     return {
       reportId,
@@ -215,12 +270,27 @@ export class CheckerService {
 
   async getRecommendations(reportId: string, token: string | undefined): Promise<Recommendation> {
     const report = await this.authorise(reportId, token);
+    await this.requirePaid(reportId);
     const { result } = await this.evaluate(report);
     return recommendChoices(result.options, report.preferences);
   }
 
   async buildPdf(reportId: string, token: string | undefined): Promise<{ bytes: Uint8Array; filename: string }> {
     const report = await this.authorise(reportId, token);
+    await this.requirePaid(reportId);
+    return this.renderPdf(report);
+  }
+
+  /** For the email service: renders the PDF of an already-paid report without a token. */
+  async renderPdfForPaidReport(reportId: string): Promise<{ bytes: Uint8Array; filename: string; qualifyingCount: number } | null> {
+    const report = await this.deps.reports.get(reportId);
+    if (!report) return null;
+    await this.requirePaid(reportId);
+    const out = await this.renderPdf(report);
+    return { ...out, qualifyingCount: report.qualifyingCount };
+  }
+
+  private async renderPdf(report: StoredReport): Promise<{ bytes: Uint8Array; filename: string }> {
     const { ds, result } = await this.evaluate(report);
     if (!result.aggregate.ok) throw badRequest('Report cannot be generated for this candidate');
     const rec = recommendChoices(result.options, report.preferences);
@@ -229,6 +299,7 @@ export class CheckerService {
       const bytes = await generateReportPdf({
         siteName: this.deps.siteName,
         supportEmail: this.deps.supportEmail,
+        supportWhatsapp: this.deps.supportWhatsapp,
         reportId: report.reportId,
         generatedAt: this.now(),
         datasetVersion: report.datasetVersion,

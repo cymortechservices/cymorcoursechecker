@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Checker from './pages/Checker';
 import Results from './pages/Results';
+import Admin from './pages/Admin';
 import { Methodology, Privacy, NotFound } from './pages/Info';
 
 /** Scrolls to #hash sections (Router does not do this by itself) and to the top on page changes. */
@@ -39,6 +40,7 @@ export default function App() {
             <Routes location={location}>
               <Route path="/" element={<Landing />} />
               <Route path="/check" element={<Checker />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="/results" element={<Results />} />
               <Route path="/methodology" element={<Methodology />} />
               <Route path="/privacy" element={<Privacy />} />

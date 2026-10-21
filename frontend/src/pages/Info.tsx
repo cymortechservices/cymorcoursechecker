@@ -12,7 +12,7 @@ const Page = ({ title, children }: { title: string; children: ReactNode }) => (
 export const Methodology = () => (
   <Page title="How results are produced">
     <p>A programme appears only if (1) your grades meet its published minimum subject requirements and (2) your estimated cluster score is equal to or above the cutoff.</p>
-    <p><strong>Cluster score:</strong> C = √((r/48) × (t/84)) × 48, where r is your points in the four subjects the programme's cluster asks for and t is your aggregate of seven subjects (English, Kiswahili, Mathematics and your best four others). Grades use the 12-point scale (A = 12 … E = 1).</p>
+    <p><strong>Cluster score:</strong> C = √((r/48) × (t/84)) × 48, where r is your points in the four subjects the programme's cluster asks for and t is your aggregate of seven subjects: Mathematics (compulsory), the better of English and Kiswahili, and your best five of the remaining subjects. Grades use the 12-point scale (A = 12 … E = 1).</p>
     <p><strong>Important:</strong> this formula and the aggregate rule come from published guides, not from the KUCCPS PDFs used here, so scores are estimates. Subject groups follow the usual KNEC convention.</p>
     <p><strong>Cutoffs:</strong> we prefer the newest cutoff specific to each university. Some years print one identical value for many universities; those are marked "shared minimum" and never presented as university-specific. A missing cutoff is never treated as zero.</p>
     <p>Reports list your recommended application choices first, then all qualifying programmes from the highest cutoff to the lowest.</p>

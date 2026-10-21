@@ -37,7 +37,9 @@ export interface AuditEntry {
     | 'activate'
     | 'rollback'
     | 'login'
-    | 'login_failed';
+    | 'login_failed'
+    | 'coupon_created'
+    | 'coupon_updated';
   datasetVersion?: string;
   details?: Record<string, unknown>;
 }
@@ -102,4 +104,92 @@ export interface AdminRepository {
   create(user: Omit<AdminUser, 'failedLogins'>): Promise<void>;
   recordFailure(email: string, lockUntil?: Date): Promise<void>;
   recordSuccess(email: string): Promise<void>;
+}
+
+/* ------------------------------------------------------------------ orders / payments */
+export type OrderStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'cancelled';
+
+/** One row per generated report. Kept (without grades) after the report itself expires, for accounting. */
+export interface Order {
+  reportId: string;
+  createdAt: Date;
+  email: string;
+  candidateName?: string;
+  datasetVersion: string;
+  qualifyingCount: number;
+  status: OrderStatus;
+  /** Price in KES before any coupon. */
+  listPrice: number;
+  /** Amount actually charged in KES (after coupon). */
+  amountDue: number;
+  couponCode?: string;
+  discountPercent?: number;
+  checkoutRequestId?: string;
+  merchantRequestId?: string;
+  /** Last digits only, e.g. "2547******12". The full number is never stored. */
+  phoneMasked?: string;
+  mpesaReceipt?: string;
+  paidAt?: Date;
+  failureReason?: string;
+  lastStkAt?: Date;
+  emailStatus: 'none' | 'sent' | 'failed' | 'skipped';
+  emailSentAt?: Date;
+}
+
+export interface PeriodStats {
+  reports: number;
+  paid: number;
+  revenue: number;
+}
+
+export interface OrderStats {
+  reportsGenerated: number;
+  paidCount: number;
+  pendingCount: number;
+  revenue: number;
+  conversionRate: number;
+  freeUnlocks: number;
+  today: PeriodStats;
+  last7Days: PeriodStats;
+  last30Days: PeriodStats;
+  daily: Array<{ date: string; reports: number; paid: number; revenue: number }>;
+  topCoupons: Array<{ code: string; uses: number }>;
+}
+
+export interface OrderListFilter {
+  status?: OrderStatus;
+  q?: string;
+  limit: number;
+  skip: number;
+}
+
+export interface OrderRepository {
+  create(order: Order): Promise<void>;
+  get(reportId: string): Promise<Order | null>;
+  getByCheckoutRequestId(checkoutRequestId: string): Promise<Order | null>;
+  update(reportId: string, patch: Partial<Order>): Promise<Order | null>;
+  /** Atomically moves an order to `paid` only if it is not already paid. Returns the order if THIS call paid it. */
+  markPaidOnce(reportId: string, patch: Partial<Order>): Promise<Order | null>;
+  list(filter: OrderListFilter): Promise<{ total: number; items: Order[] }>;
+  stats(now: Date): Promise<OrderStats>;
+}
+
+export interface Coupon {
+  code: string;
+  percentOff: number;
+  active: boolean;
+  maxUses?: number;
+  expiresAt?: Date;
+  usedCount: number;
+  note?: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
+export interface CouponRepository {
+  create(coupon: Coupon): Promise<void>;
+  get(code: string): Promise<Coupon | null>;
+  list(): Promise<Coupon[]>;
+  setActive(code: string, active: boolean): Promise<Coupon | null>;
+  incrementUsed(code: string): Promise<void>;
 }

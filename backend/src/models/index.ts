@@ -212,6 +212,49 @@ const auditSchema = new Schema(
   { collection: 'audit_log' },
 );
 
+/* ---- Orders (one per generated report; NO grades; kept for accounting) ------------------- */
+const orderSchema = new Schema(
+  {
+    reportId: { type: String, required: true, unique: true },
+    createdAt: { type: Date, default: Date.now, index: true },
+    email: { type: String, required: true, lowercase: true, trim: true, index: true },
+    candidateName: String,
+    datasetVersion: String,
+    qualifyingCount: { type: Number, default: 0 },
+    status: { type: String, enum: ['unpaid', 'pending', 'paid', 'failed', 'cancelled'], default: 'unpaid', index: true },
+    listPrice: { type: Number, required: true },
+    amountDue: { type: Number, required: true },
+    couponCode: String,
+    discountPercent: Number,
+    checkoutRequestId: { type: String, index: true, sparse: true },
+    merchantRequestId: String,
+    phoneMasked: String,
+    mpesaReceipt: String,
+    paidAt: { type: Date, index: true },
+    failureReason: String,
+    lastStkAt: Date,
+    emailStatus: { type: String, enum: ['none', 'sent', 'failed', 'skipped'], default: 'none' },
+    emailSentAt: Date,
+  },
+  { collection: 'orders' },
+);
+
+/* ---- Coupons ----------------------------------------------------------------------------- */
+const couponSchema = new Schema(
+  {
+    code: { type: String, required: true, unique: true, uppercase: true, trim: true, match: /^[A-Z0-9_-]{3,20}$/ },
+    percentOff: { type: Number, required: true, min: 1, max: 100 },
+    active: { type: Boolean, default: true },
+    maxUses: { type: Number, min: 1 },
+    expiresAt: Date,
+    usedCount: { type: Number, default: 0 },
+    note: { type: String, maxlength: 200 },
+    createdAt: { type: Date, default: Date.now },
+    createdBy: String,
+  },
+  { collection: 'coupons' },
+);
+
 export const SourceDocumentModel: AnyModel = getModel('SourceDocument', sourceDocumentSchema);
 export const ImportBatchModel: AnyModel = getModel('ImportBatch', importBatchSchema);
 export const DatasetVersionModel: AnyModel = getModel('DatasetVersion', datasetVersionSchema);
@@ -225,3 +268,5 @@ export const AdminUserModel: AnyModel = getModel('AdminUser', adminUserSchema);
 export const AuditModel: AnyModel = getModel('Audit', auditSchema);
 
 export type ProgrammeDoc = InferSchemaType<typeof programmeSchema>;
+export const OrderModel: AnyModel = getModel('Order', orderSchema);
+export const CouponModel: AnyModel = getModel('Coupon', couponSchema);
