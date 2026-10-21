@@ -58,11 +58,11 @@ export default function Landing() {
             <motion.p initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.7 }} className="mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
               Enter your grades once. We match them against programme requirements and cutoffs at every university, give you six recommended application choices, and a PDF to take with you.
             </motion.p>
-            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.7 }} className="mt-8 flex flex-wrap gap-3">
-              <Link to="/check" className="btn btn-primary text-lg">Check my courses <ArrowRight aria-hidden /></Link>
-              <a href="#how" className="btn btn-light text-lg">How it works</a>
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.7 }} className="mt-8 flex flex-col items-center gap-3">
+              <Link to="/check" className="btn btn-primary w-full max-w-md px-8 py-5 text-xl shadow-2xl shadow-violet-600/50 ring-4 ring-white/20 sm:text-2xl">Check my courses <ArrowRight aria-hidden /></Link>
+              <a href="#how" className="text-sm font-medium text-cyan-200 underline-offset-4 hover:underline">or see how it works</a>
             </motion.div>
-            <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
+            <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-300">
               {['No sign-up', 'Takes about 2 minutes', 'KSh 149 unlocks results + PDF', 'Report emailed to you'].map((t) => <li key={t} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-cyan-300" aria-hidden />{t}</li>)}
             </motion.ul>
           </div>

@@ -31,6 +31,8 @@ const STEPS = [
   { label: 'Review', icon: CheckCircle2 },
 ];
 const gradeColor = (g: string) => (pts(g) >= 10 ? 'bg-emerald-500 text-white' : pts(g) >= 7 ? 'bg-violet-600 text-white' : pts(g) >= 4 ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white');
+/** Search words, not data: matched against programme names by the server (every word must appear in the programme name). */
+const POPULAR = ['Medicine', 'Nursing', 'Pharmacy', 'Engineering', 'Computer Science', 'Law', 'Education', 'Commerce', 'Economics', 'Architecture', 'Agriculture', 'Actuarial', 'Journalism', 'Psychology'];
 const MESSAGES = ['Reading your grades…', 'Matching cluster subjects…', 'Checking subject requirements…', 'Comparing with cutoffs at every university…', 'Preparing your results…'];
 
 export default function Checker() {
@@ -277,7 +279,15 @@ export default function Checker() {
                       </AnimatePresence>
                     </ul>
                   )}
-                  <p className="text-sm text-slate-500">Up to 10 courses. The first ones you add are favoured first.</p>
+                  <div>
+                    <p className="text-sm font-semibold text-ink">Popular choices: tap to add</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {POPULAR.filter((c) => !prefs.some((p) => p.toLowerCase() === c.toLowerCase())).map((c) => (
+                        <motion.button key={c} type="button" whileTap={{ scale: 0.94 }} whileHover={{ y: -2 }} disabled={prefs.length >= 10} onClick={() => addPref(c)} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700 disabled:opacity-40">+ {c}</motion.button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Up to 10 courses. The first ones you add are favoured first. Short words work best (for example “Nursing”). Nothing here is required: press Next to skip.</p>
                 </div>
               )}
 
