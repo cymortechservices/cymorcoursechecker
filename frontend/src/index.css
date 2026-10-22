@@ -22,3 +22,10 @@ h1, h2, h3 { font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif; }
 .grid-bg { background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%); }
 .glass { @apply bg-white/10 border border-white/15 backdrop-blur-md; }
 .shimmer-text { background: linear-gradient(90deg, #fff 0%, #22D3EE 25%, #a78bfa 50%, #22D3EE 75%, #fff 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 3.5s linear infinite; }
+
+/* Step transitions: pure CSS, always end fully visible (cannot get stuck at opacity 0). */
+@keyframes stepInRight { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: none; } }
+@keyframes stepInLeft { from { opacity: 0; transform: translateX(-32px); } to { opacity: 1; transform: none; } }
+.step-in-right { animation: stepInRight .25s ease-out both; }
+.step-in-left { animation: stepInLeft .25s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .step-in-right, .step-in-left { animation: none; } }

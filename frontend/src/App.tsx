@@ -35,8 +35,7 @@ export default function App() {
       <AnimatePresence>{showIntro && <Intro onDone={done} />}</AnimatePresence>
       <ScrollManager />
       <Layout>
-        <AnimatePresence mode="wait">
-          <motion.div key={location.pathname} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+        <motion.div key={location.pathname} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
             <Routes location={location}>
               <Route path="/" element={<Landing />} />
               <Route path="/check" element={<Checker />} />
@@ -52,7 +51,6 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </motion.div>
-        </AnimatePresence>
       </Layout>
     </>
   );

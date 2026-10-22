@@ -8,6 +8,7 @@ import { ApiError, SubjectInfo, api, session } from '../lib/api';
 import { Details, GRADE_LIST, detailsSchema, gradesSchema } from '../lib/schemas';
 import { SUPPORT_EMAIL } from '../lib/site';
 import { LogoMark } from '../components/Logo';
+import ErrorBoundary from '../components/ErrorBoundary';
 import SubjectPicker from '../components/SubjectPicker';
 import { FALLBACK_SUBJECTS } from '../lib/subjects.fallback';
 
@@ -95,7 +96,7 @@ export default function Checker() {
   })();
 
   const setRow = (id: number, patch: Partial<Row>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const go = (n: number) => { setDir(n > step ? 1 : -1); setStep(n); };
+  const go = (n: number) => { setDir(n > step ? 1 : -1); setStep(n); window.scrollTo({ top: 0, behavior: 'auto' }); };
 
   async function validateGrades(): Promise<boolean> {
     const errs: string[] = [];
@@ -140,7 +141,6 @@ export default function Checker() {
     }
   }
 
-  const variants = { enter: (d: number) => ({ opacity: 0, x: reduce ? 0 : d * 60 }), center: { opacity: 1, x: 0 }, exit: (d: number) => ({ opacity: 0, x: reduce ? 0 : d * -60 }) };
 
   return (
     <div className="relative min-h-[80vh] overflow-hidden bg-gradient-to-b from-navy via-[#12183a] to-slate-100 pb-16">
@@ -172,8 +172,9 @@ export default function Checker() {
         {loadErr && <p role="status" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">Could not reach the server just now ({loadErr}). You can keep filling in your grades; we will try again when you press Next.</p>}
 
         <div className="card relative mt-6 overflow-hidden p-6 shadow-xl sm:p-8">
-          <AnimatePresence mode="wait" custom={dir} initial={false}>
-            <motion.section key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.28, ease: 'easeOut' }}>
+          {/* No exit animation: waiting for an exit (AnimatePresence mode="wait") could leave the next step invisible. */}
+          <ErrorBoundary key={step}>
+            <section key={step} className={dir > 0 ? 'step-in-right' : 'step-in-left'}>
               {step === 0 && (
                 <div className="space-y-5">
                   <div><h2 className="font-display text-2xl font-extrabold text-ink">Your details</h2>
@@ -271,10 +272,10 @@ export default function Checker() {
                     <ul className="flex flex-wrap gap-2" aria-label="Your preferred courses">
                       <AnimatePresence initial={false}>
                         {prefs.map((p, i) => (
-                          <motion.li key={p} layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="inline-flex items-center gap-2 rounded-full bg-violet-100 py-1.5 pl-3 pr-1.5 text-sm font-medium text-violet-900">
+                          <li key={p} className="inline-flex items-center gap-2 rounded-full bg-violet-100 py-1.5 pl-3 pr-1.5 text-sm font-medium text-violet-900">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-xs font-bold text-white">{i + 1}</span>{p}
                             <button type="button" aria-label={`Remove ${p}`} className="rounded-full p-1 text-violet-700 hover:bg-violet-200" onClick={() => setPrefs((x) => x.filter((y) => y !== p))}><X size={14} aria-hidden /></button>
-                          </motion.li>
+                          </li>
                         ))}
                       </AnimatePresence>
                     </ul>
@@ -296,11 +297,11 @@ export default function Checker() {
                   <div><h2 className="font-display text-2xl font-extrabold text-ink">Review and check</h2>
                     <p className="mt-1 text-slate-600">Make sure everything looks right, then we will find your courses.</p></div>
                   <ul className="grid gap-2 sm:grid-cols-2">
-                    {filled.map((r, i) => (
-                      <motion.li key={r.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
+                    {filled.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
                         <span className="font-medium text-ink">{byCode.get(r.subject)?.name ?? r.subject}</span>
                         <span className={`rounded-lg px-2.5 py-0.5 text-sm font-bold ${gradeColor(r.grade)}`}>{r.grade}</span>
-                      </motion.li>
+                      </li>
                     ))}
                   </ul>
                   {preview !== null && <p className="rounded-xl bg-violet-50 p-3 text-violet-900">Aggregate preview: <strong>{preview}/84</strong> (Mathematics, the better of English and Kiswahili, and your best five other subjects).</p>}
@@ -310,8 +311,8 @@ export default function Checker() {
                   {submitErr && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">{submitErr}</p>}
                 </div>
               )}
-            </motion.section>
-          </AnimatePresence>
+            </section>
+          </ErrorBoundary>
 
           <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-5">
             <button type="button" className="btn btn-ghost" disabled={step === 0 || busy} onClick={() => go(step - 1)}><ArrowLeft size={18} aria-hidden /> Back</button>
